@@ -1,0 +1,30 @@
+image: python:3.11
+
+stages:
+  - setup
+  - build
+  - publish
+
+generate:
+  stage: build
+  before_script:
+    - apt-get update && apt-get install -y default-jre
+    - python --version
+  script:
+    - make install
+    - make generate
+  artifacts:
+    paths:
+      - python/client/
+
+publish:
+  stage: publish
+  needs:
+    - generate
+  script:
+    - make publish
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  variables:
+    TWINE_USERNAME: ${PYPI_USERNAME}
+    TWINE_PASSWORD: ${PYPI_PASSWORD}

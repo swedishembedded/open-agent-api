@@ -1,0 +1,2342 @@
+openapi: "3.0.3"
+info:
+  title: Open Agent API
+  description: |
+    An API for creating and interacting with AI agents, including chat completions,
+    autonomous agents with tool usage, multi-agent teams, knowledge base search,
+    and optional billing integration.
+    Clients can authenticate via magic link or OAuth2 to obtain a token, or use API keys.
+  version: "0.1.0"
+servers:
+  - url: https://api.swedishembedded.com/v1
+    description: Swedish Embedded API
+  - url: https://api.agentsven.com/v1
+    description: Agentsven API
+  - url: https://api.openagent.example.com/v1
+    description: Example API server
+tags:
+  - name: Authentication
+    description: Endpoints for user authentication (magic link, OAuth)
+  - name: Agents
+    description: Manage and interact with individual agents
+  - name: Teams
+    description: Group agents into teams for collaborative responses
+  - name: Chat
+    description: Low-level chat completions (OpenAI-compatible)
+  - name: Knowledge
+    description: Semantic knowledge base search
+  - name: Billing
+    description: Stripe webhook endpoints and billing info (optional)
+  - name: MCP
+    description: Model Context Protocol
+
+paths:
+  ################
+  # Agents Paths #
+  ################
+  /agents:
+    post:
+      tags: [Agents]
+      summary: Create a new agent
+      description: |
+        Registers a new agent with given configuration. The agent will be associated with the authenticated user's account.
+        Agents have a base model and optional tools/knowledge that they can use.
+      security:
+        - ApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, model]
+              properties:
+                name:
+                  type: string
+                  description: Human-readable name for the agent.
+                model:
+                  type: string
+                  description: ID of the base model the agent will use (e.g. "gpt-4").
+                description:
+                  type: string
+                  description: Optional description or persona of the agent.
+                tools:
+                  type: array
+                  description: Optional list of tools this agent can use.
+                  items:
+                    $ref: "#/components/schemas/Tool"
+      responses:
+        "201":
+          description: Agent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "400":
+          description: Invalid input.
+        "401":
+          description: Unauthorized.
+    get:
+      tags: [Agents]
+      summary: List my agents
+      description: "Retrieve all agents owned by the authenticated user."
+      security:
+        - ApiKey: []
+      responses:
+        "200":
+          description: A list of agent definitions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Agent"
+        "401":
+          description: Unauthorized.
+  /agents/{agentId}:
+    get:
+      tags: [Agents]
+      summary: Get agent details
+      description: "Fetch configuration and details of a specific agent by ID."
+      security:
+        - ApiKey: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique ID of the agent.
+      responses:
+        "200":
+          description: Agent details returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          description: Agent not found or not owned by user.
+        "401":
+          description: Unauthorized.
+  /agents/{agentId}/chat:
+    post:
+      tags: [Agents]
+      summary: Interact with an agent (chat interface)
+      description: |
+        Send a chat conversation to the specified agent and get a response. Supports streaming responses via SSE.
+        The agent can utilize tools if available; tool requests will be surfaced as events in streaming mode.
+        If not streaming, the agent's final answer is returned directly.
+      security:
+        - ApiKey: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the agent to interact with.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                messages:
+                  type: array
+                  description: The conversation history or prompt for the agent.
+                  items:
+                    $ref: "#/components/schemas/Message"
+                tools:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Tool"
+                  description: Optional list of available tools for this interaction (overrides or supplements agent's default tools).
+      responses:
+        "200":
+          description: |
+            Successful response from agent. If not streaming, this is the final answer.
+            If streaming, this is the initial response (possibly empty or just an acknowledgment).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/Message"
+                  usage:
+                    $ref: "#/components/schemas/Usage"
+                  finish_reason:
+                    type: string
+                    description: Reason the agent stopped (e.g. "stop", "tool_request").
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream. The stream will contain events:
+                  - RunStarted (agent started processing)
+                  - RunResponse (partial output or tool request)
+                  - RunCompleted (final output)
+                  Each event's data is a JSON object with at least a "type" field and additional fields depending on type.
+                  For example, a ToolRequest event may have { "type": "ToolRequest", "tool": "...", "input": "..." }.
+        "400":
+          description: Bad input (e.g., missing messages).
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Agent not found.
+  /agent/{agent_id}:
+    post:
+      summary: Agent Completion Create
+      description: Generate a new completion for the agent.
+      security:
+        - ApiKey: []
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          description: The unique identifier for the agent
+          schema:
+            type: string
+        - name: accept
+          in: header
+          required: false
+          schema:
+            type: string
+            default: ""
+            title: Accept
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentCompletionRequest"
+      responses:
+        "200":
+          description: The agent interaction was successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentCompletionResponse"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /:
+    get:
+      summary: Root
+      operationId: root__get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Root Get
+
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Health Health Get
+
+  ########################
+  # Authentication Paths #
+  ########################
+  /auth/link:
+    post:
+      tags: [Authentication]
+      summary: Request a magic login link via email
+      description: |
+        Initiates a magic link authentication by sending an email with a login link.
+        The email contains a token that can be used to verify and log in.
+
+        **Note:** This endpoint is typically unauthenticated (no token required)
+        *because it's for login.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email address to send the magic login link to.
+      responses:
+        "200":
+          description: Magic link email sent (or response is always 204 No Content on success).
+        "400":
+          description: Bad request (invalid email)
+        "429":
+          description: Too many requests (rate limit on sending emails)
+
+  /auth/link/verify/{token}:
+    get:
+      tags: [Authentication]
+      summary: Verify a magic link token
+      description: |
+        Verifies the token from the magic link email. On success, returns an API token (JWT)
+        that can be used for authenticated requests.
+        The token is typically provided as a query parameter in the magic link URL.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The one-time token from the magic link.
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Bearer JWT for authenticated requests.
+                  token_type:
+                    type: string
+                    example: Bearer
+                  expires_in:
+                    type: integer
+                    description: Expiration time in seconds.
+        "400":
+          description: Invalid or expired token.
+        "401":
+          description: Token verification failed.
+
+  /auth/link/status/{token}:
+    get:
+      tags:
+        - Authentication
+      summary: Check Verification Status
+      description: Check if a verification token has been used.
+        Used by the client to poll for verification status.
+      operationId: check_verification_status_auth_verification_status__token__get
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Token
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                title: Response Check Verification Status Auth Verification Status  Token  Get
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /auth/oauth/{provider}:
+    get:
+      tags: [Authentication]
+      summary: Initiate OAuth2 login flow
+      description: |
+        Generates and returns the authorization URL for a specific OAuth provider.
+        The client should redirect the user to this URL to begin the OAuth process.
+
+        For console applications, this endpoint can generate a URL that can be opened
+        in a browser, and the application can use a local redirect or device flow.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            example: google
+          description: OAuth provider name (e.g., google, github).
+        - name: redirect_uri
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+          description: |
+            Optional redirect URI after successful OAuth. If not provided,
+            a default redirect URI configured for the application will be used.
+        - name: device_flow
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            If true, initiates a device flow suitable for console applications.
+            Returns a device code and verification URI instead of a redirect URL.
+      responses:
+        "200":
+          description: OAuth flow initiated successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OAuthAuthorizationResponse"
+                  - $ref: "#/components/schemas/OAuthDeviceCodeResponse"
+        "400":
+          description: Bad request (invalid provider or parameters)
+
+  /auth/oauth/{provider}/callback:
+    get:
+      tags: [Authentication]
+      summary: OAuth2 callback endpoint
+      description: |
+        Endpoint for OAuth provider to redirect to with an authorization code.
+        The server will exchange the code for user info and log the user in.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            example: google
+          description: OAuth provider name (e.g., google, github).
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: OAuth authorization code provided by the OAuth provider.
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: OAuth state parameter for CSRF protection.
+      responses:
+        "200":
+          description: OAuth login successful – returns a JWT for API usage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "400":
+          description: Missing or invalid code.
+        "401":
+          description: OAuth exchange failed (bad code or provider error).
+
+  /auth/oauth/device/token:
+    post:
+      tags: [Authentication]
+      summary: OAuth2 device code token exchange
+      description: |
+        Exchange a device code for an access token during device flow authentication.
+        Used by console applications that initiated a device flow authentication.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthDeviceTokenRequest"
+      responses:
+        "200":
+          description: Device code exchange successful - returns a JWT for API usage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "400":
+          description: Invalid device code
+        "401":
+          description: Authorization pending or expired
+        "429":
+          description: Polling too frequently (respect the interval returned in the device flow initiation)
+
+  /auth/keys:
+    post:
+      tags:
+        - Authentication
+      summary: Create API Key
+      description: |
+        Create a new API key for the authenticated user. 
+        API keys can be used instead of the JWT token for authentication.
+        API usage is tracked per API key to enable detailed billing and usage analytics.
+      operationId: create_api_key_auth_keys_post
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyCreate"
+      responses:
+        "201":
+          description: API key created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyResponse"
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+        "403":
+          description: Forbidden - User does not have permission to create API keys
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+    get:
+      tags:
+        - Authentication
+      summary: List API Keys
+      description: |
+        List all active API keys for the authenticated user.
+        This endpoint returns only metadata about the keys, not the actual key values.
+      operationId: list_api_keys_auth_keys_get
+      security:
+        - ApiKey: []
+      responses:
+        "200":
+          description: List of API keys returned successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyInfo"
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+        "403":
+          description: Forbidden - User does not have permission to list API keys
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /auth/keys/{key_id}:
+    get:
+      tags:
+        - Authentication
+      summary: Get API Key
+      description: |
+        Get details about a specific API key by its ID.
+        This endpoint returns metadata about the key, not the actual key value.
+      operationId: get_api_key_auth_keys__key_id__get
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The UUID of the API key
+      responses:
+        "200":
+          description: API key details returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyInfo"
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+        "403":
+          description: Forbidden - User does not have permission to access this API key
+        "404":
+          description: API key not found
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+    delete:
+      tags:
+        - Authentication
+      summary: Revoke API Key
+      description: |
+        Revoke (delete) an API key by its ID.
+        Once revoked, the API key can no longer be used for authentication.
+        This action cannot be undone.
+      operationId: revoke_api_key_auth_keys__key_id__delete
+      security:
+        - ApiKey: []
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The UUID of the API key to revoke
+      responses:
+        "200":
+          description: API key revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyRevocationResponse"
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+        "403":
+          description: Forbidden - User does not have permission to revoke this API key
+        "404":
+          description: API key not found
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /auth/keys/{key_id}/usage:
+    get:
+      tags:
+        - Authentication
+      summary: Get API Key Usage
+      description: |
+        Get detailed usage statistics for a specific API key.
+        This includes aggregated request counts, token usage, and billing information.
+        Optionally filter by date range or group by different time periods.
+      operationId: get_api_key_usage_auth_keys__key_id__usage_get
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The UUID of the API key
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Start date for filtering usage data (YYYY-MM-DD)
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: End date for filtering usage data (YYYY-MM-DD)
+        - name: group_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+          description: Group usage data by time period
+      responses:
+        "200":
+          description: API key usage data returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyUsageResponse"
+        "401":
+          description: Unauthorized - Invalid or missing authentication
+        "403":
+          description: Forbidden - User does not have permission to access this API key
+        "404":
+          description: API key not found
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /mcp/:
+    get:
+      tags:
+        - MCP
+      summary: Mcp Info
+      description: Get information about the MCP server.
+      operationId: mcp_info_mcp__get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                title: Response Mcp Info Mcp  Get
+      security:
+        - ApiKey: []
+
+  /mcp/sse:
+    get:
+      tags:
+        - MCP
+      summary: Sse Endpoint
+      description: SSE endpoint for MCP clients.
+      operationId: sse_endpoint_mcp_sse_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            text/event-stream:
+              schema:
+                type: object
+                properties:
+                  event:
+                    type: string
+                    description: The type of event
+                    enum: [status, chunk]
+                  data:
+                    oneOf:
+                      - type: object
+                        items:
+                          $ref: "#/components/schemas/RunResponse"
+                        title: RunResponse
+                      - type: object
+                        items:
+                          $ref: "#/components/schemas/RunStarted"
+                        title: RunStarted
+                      - type: object
+                        items:
+                          $ref: "#/components/schemas/RunCompleted"
+                        title: RunCompleted
+
+  /mcp/messages:
+    post:
+      tags:
+        - MCP
+      summary: Messages Endpoint
+      description: Messages endpoint for MCP clients.
+      operationId: messages_endpoint_mcp_messages_post
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+
+  ##############
+  # Teams Paths#
+  ##############
+  /teams:
+    post:
+      tags: [Teams]
+      summary: Create a new team of agents
+      description: |
+        Dynamically create a team of agents. Provide a list of existing agent IDs and their roles.
+        Optionally specify which agent should act as the team leader (or one will be chosen).
+      security:
+        - ApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, agents]
+              properties:
+                name:
+                  type: string
+                  description: Team name.
+                agents:
+                  type: array
+                  description: Agents to include in the team.
+                  items:
+                    type: object
+                    required: [agent_id]
+                    properties:
+                      agent_id:
+                        type: string
+                      role:
+                        type: string
+                        description: Role of this agent in the team (e.g. "Researcher", "Coder").
+                leader_id:
+                  type: string
+                  description: Optional. Agent ID to designate as team leader (if not provided, the first agent or system default will be leader).
+      responses:
+        "201":
+          description: Team created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "400":
+          description: Bad input (e.g., agent IDs invalid).
+        "401":
+          description: Unauthorized.
+    get:
+      tags: [Teams]
+      summary: List my teams
+      security:
+        - ApiKey: []
+      responses:
+        "200":
+          description: List of teams.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  teams:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Team"
+        "401":
+          description: Unauthorized.
+  /teams/{teamId}:
+    get:
+      tags: [Teams]
+      summary: Get team details
+      description: Retrieve info about a specific team, including members and roles.
+      security:
+        - ApiKey: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Team ID.
+      responses:
+        "200":
+          description: Team details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "404":
+          description: Team not found or not accessible.
+        "401":
+          description: Unauthorized.
+  /teams/{teamId}/chat:
+    post:
+      tags: [Teams]
+      summary: Interact with a team of agents
+      description: |
+        Send a message to a team. The team leader agent will coordinate members to respond.
+        Supports streaming SSE responses similar to single-agent chat.
+      security:
+        - ApiKey: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the team to interact with.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Message"
+                  description: Conversation history or prompt.
+                tools:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Tool"
+                  description: Optional tools available to the team (if any global tools to provide).
+      responses:
+        "200":
+          description: Team response (non-streaming) or acknowledgement (streaming).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/Message"
+                  usage:
+                    $ref: "#/components/schemas/Usage"
+                  finish_reason:
+                    type: string
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE stream of events from the team interaction.
+                  Events can include tool requests from any member agent, partial outputs, and final completion.
+        "400":
+          description: Bad input.
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Team not found.
+  #####################
+  # Knowledge Search  #
+  #####################
+  /knowledge/search:
+    post:
+      tags: [Knowledge]
+      summary: Semantic search in knowledge base
+      description: |
+        Search the authenticated user's knowledge base (or global knowledge) for relevant information.
+        Returns documents or snippets matching the query, using embedding-based similarity.
+      security:
+        - ApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                  description: Search query (natural language).
+      responses:
+        "200":
+          description: Search results retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/KnowledgeResult"
+        "400":
+          description: Bad request (e.g., missing query).
+        "401":
+          description: Unauthorized.
+  #####################
+  # Stripe Webhook    #
+  #####################
+  /stripe/webhook:
+    post:
+      tags: [Billing]
+      summary: Stripe webhook endpoint
+      description: |
+        Webhook endpoint to receive events from Stripe.
+        Verifies Stripe signature and processes events like invoice.paid, subscription created, etc.
+        **Note:** This endpoint is typically unauthenticated (Stripe posts to it), but secured by verifying signatures.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object    # The exact schema depends on Stripe's event format; Stripe sends an 'event' object.
+      responses:
+        "200":
+          description: Webhook received successfully (Stripe requires a 2xx to not retry).
+        "400":
+          description: Bad signature or event (ignored).
+        "500":
+          description: Server error.
+  ##################
+  # Chat Completion #
+  ##################
+  /chat/completions:
+    post:
+      tags: [Chat]
+      summary: Create a chat completion (OpenAI-compatible)
+      description: |
+        Create a completion for a chat conversation, given a model and messages.
+        This endpoint is designed to be compatible with OpenAI's /v1/chat/completions.
+      security:
+        - ApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+      responses:
+        "200":
+          description: Successful chat completion (non-streaming)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+            text/event-stream:
+              schema:
+                type: string
+                format: binary
+                description: |
+                  Streamed chat completion. The response is sent as an SSE stream where each
+                  event's data field is a JSON message (partial completion or final completion).
+                  The stream ends with a [DONE] event or when the completion is finished.
+        "401":
+          description: Unauthorized (invalid or missing API key)
+        "400":
+          description: Bad request (e.g., invalid model or parameters)
+
+  /models:
+    get:
+      tags:
+        - Chat
+      summary: List Models
+      description: List available models by forwarding the request to OpenAI.
+      operationId: list_models_v1_models_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      security:
+        - ApiKey: []
+
+  /subscription/plans:
+    get:
+      tags:
+        - subscription
+      summary: List Subscription Plans
+      description: List all available subscription plans.
+      operationId: list_subscription_plans_subscription_plans_get
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: is_active
+          in: query
+          required: false
+          schema:
+            type: boolean
+            description: Filter by active status
+            default: true
+          description: Filter by active status
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionPlanResponse"
+                title: Response List Subscription Plans Subscription Plans Get
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /subscription/plans/{plan_id}:
+    get:
+      tags:
+        - subscription
+      summary: Get Plan
+      description: Get details of a specific subscription plan.
+      operationId: get_plan_subscription_plans__plan_id__get
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            title: Plan Id
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlanResponse"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /subscription/subscribe:
+    post:
+      tags:
+        - subscription
+      summary: Create Subscription
+      description: Create a new subscription for the current user.
+      operationId: create_subscription_subscription_subscribe_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserSubscriptionCreate"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSubscriptionResponse"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - BearerAuth: []
+
+  /subscription/current:
+    get:
+      tags:
+        - subscription
+      summary: Get Current Subscription
+      description: Get the current user's active subscription.
+      operationId: get_current_subscription_subscription_current_get
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSubscriptionResponse"
+      security:
+        - BearerAuth: []
+
+  /subscription/cancel:
+    post:
+      tags:
+        - subscription
+      summary: Cancel Subscription
+      description: Cancel the current user's subscription at the end of the billing period.
+      operationId: cancel_subscription_subscription_cancel_post
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSubscriptionResponse"
+      security:
+        - BearerAuth: []
+
+  /subscription/webhook:
+    post:
+      tags:
+        - subscription
+      summary: Stripe Webhook
+      description: Handle Stripe webhook events.
+      operationId: stripe_webhook_subscription_webhook_post
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Stripe Webhook Subscription Webhook Post
+
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authenticating requests
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Use a Bearer token for authorization. This can be an API key (for direct API access) or a JWT obtained via login.
+  schemas:
+    Environment:
+      type: object
+      required:
+        - working_directory
+        - platform
+      properties:
+        working_directory:
+          type: string
+          description: The working directory for the agent
+        platform:
+          type: string
+          description: The platform the agent is running on
+
+    Function:
+      type: object
+      required:
+        - name
+        - description
+        - parameters
+      properties:
+        name:
+          type: string
+          description: The name of the function
+        description:
+          type: string
+          description: The description of the function
+        parameters:
+          type: object
+          description: The parameters of the function
+        strict:
+          type: boolean
+          description: Whether the function is strict
+          default: false
+
+    AgentTool:
+      type: object
+      required:
+        - name
+        - functions
+      properties:
+        name:
+          type: string
+          description: The name of the tool
+        functions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Function"
+          description: The functions of the tool
+
+    Message:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant]
+          description: The role of the message sender
+        content:
+          type: string
+          description: The content of the message
+        name:
+          type: string
+          title: Name
+        tool_call_id:
+          type: string
+          title: Tool Call Id
+        tool_calls:
+          anyOf:
+            - type: array
+              items:
+                type: object
+          title: Tool Calls
+        thinking:
+          type: string
+          title: Thinking
+        redacted_thinking:
+          type: string
+          title: Redacted Thinking
+        provider_data:
+          type: object
+          title: Provider Data
+        citations:
+          type: object
+          $ref: "#/components/schemas/Citations"
+        reasoning_content:
+          type: string
+          title: Reasoning Content
+        tool_name:
+          type: string
+          title: Tool Name
+        tool_args:
+          type: object
+          title: Tool Args
+        tool_call_error:
+          type: boolean
+          title: Tool Call Error
+        stop_after_tool_call:
+          type: boolean
+          title: Stop After Tool Call
+          default: false
+        add_to_agent_memory:
+          type: boolean
+          title: Add To Agent Memory
+          default: true
+        from_history:
+          type: boolean
+          title: From History
+          default: false
+        metrics:
+          $ref: "#/components/schemas/MessageMetrics"
+        references:
+          $ref: "#/components/schemas/MessageReferences"
+        created_at:
+          type: integer
+          title: Created At
+
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          description: ID of the model to use for completion (e.g., gpt-3.5-turbo).
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        temperature:
+          type: number
+          format: float
+          default: 1.0
+          description: Sampling temperature.
+        top_p:
+          type: number
+          format: float
+          default: 1.0
+          description: Nucleus sampling probability.
+        n:
+          type: integer
+          default: 1
+          description: Number of completions to generate.
+        stream:
+          type: boolean
+          default: false
+          description: Whether to stream the response as events. If true, SSE should be used.
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              items: 
+                type: string
+          description: Stop sequence(s) to halt generation.
+        max_tokens:
+          type: integer
+          description: Maximum tokens to generate in the completion.
+        presence_penalty:
+          type: number
+          default: 0
+        frequency_penalty:
+          type: number
+          default: 0
+        user:
+          type: string
+          description: Optional user identifier (for auditing or context).
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique ID for the completion.
+        object:
+          type: string
+          example: chat.completion
+        created:
+          type: integer
+          description: Unix timestamp of completion creation.
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                $ref: "#/components/schemas/Message"
+              finish_reason:
+                type: string
+                description: e.g. stop, length, etc.
+        usage:
+          $ref: "#/components/schemas/Usage"
+    MessageMetrics:
+      type: object
+      title: MessageMetrics
+      properties:
+        input_tokens:
+          type: integer
+          title: Input Tokens
+          default: 0
+        output_tokens:
+          type: integer
+          title: Output Tokens
+          default: 0
+        total_tokens:
+          type: integer
+          title: Total Tokens
+          default: 0
+        prompt_tokens:
+          type: integer
+          title: Prompt Tokens
+          default: 0
+        completion_tokens:
+          type: integer
+          title: Completion Tokens
+          default: 0
+        prompt_tokens_details:
+          anyOf:
+            - type: object
+          title: Prompt Tokens Details
+        completion_tokens_details:
+          anyOf:
+            - type: object
+          title: Completion Tokens Details
+        additional_metrics:
+          anyOf:
+            - type: object
+          title: Additional Metrics
+        time:
+          anyOf:
+            - type: number
+          title: Time
+        time_to_first_token:
+          anyOf:
+            - type: number
+          title: Time To First Token
+
+    MessageReferences:
+      type: object
+      required:
+        - query
+        - references
+      title: MessageReferences
+      description: References added to user message
+      properties:
+        query:
+          type: string
+          title: Query
+        references:
+          anyOf:
+            - type: array
+              items:
+                type: object
+          title: References
+        time:
+          anyOf:
+            - type: number
+          title: Time
+
+    Citations:
+      type: object
+      title: Citations
+      description: Citations for the message
+      properties:
+        raw:
+          anyOf:
+            - {}
+          title: Raw
+        urls:
+          anyOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/UrlCitation"
+          title: Urls
+        documents:
+          anyOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/DocumentCitation"
+          title: Documents
+
+    UrlCitation:
+      type: object
+      title: UrlCitation
+      description: URL of the citation
+      properties:
+        url:
+          anyOf:
+            - type: string
+          title: Url
+        title:
+          anyOf:
+            - type: string
+          title: Title
+
+    DocumentCitation:
+      type: object
+      title: DocumentCitation
+      description: Document of the citation
+      properties:
+        document_title:
+          anyOf:
+            - type: string
+          title: Document Title
+        cited_text:
+          anyOf:
+            - type: string
+          title: Cited Text
+        file_name:
+          anyOf:
+            - type: string
+          title: File Name
+
+    RunStarted:
+      type: object
+      required:
+        - run_id
+        - content
+        - content_type
+        - event
+        - created_at
+        - agent_id
+        - session_id
+      properties:
+        run_id:
+          type: string
+          description: The unique identifier for the run
+        content:
+          type: string
+          description: The content of the response
+        content_type:
+          type: string
+          description: The type of content
+        event:
+          type: string
+          description: The event type
+          enum: [RunStarted, RunCompleted, ToolCallStarted, ToolCallCompleted]
+        model:
+          type: string
+          description: The model used for the run
+        agent_id:
+          type: string
+          description: The unique identifier for the agent
+        session_id:
+          type: string
+          description: The unique identifier for the session
+        created_at:
+          type: integer
+          description: The timestamp when the response was created
+
+    RunCompleted:
+      type: object
+      required:
+        - run_id
+        - content
+        - content_type
+        - event
+        - created_at
+        - agent_id
+        - session_id
+      properties:
+        run_id:
+          type: string
+          description: The unique identifier for the run
+        content:
+          type: string
+          description: The content of the response
+        content_type:
+          type: string
+          description: The type of content
+        event:
+          type: string
+          description: The event type
+          enum: [RunStarted, RunCompleted, ToolCallStarted, ToolCallCompleted]
+        model:
+          type: string
+          description: The model used for the run
+        agent_id:
+          type: string
+          description: The unique identifier for the agent
+        session_id:
+          type: string
+          description: The unique identifier for the session
+        created_at:
+          type: integer
+          description: The timestamp when the response was created
+        runtime:
+          type: number
+          description: The total runtime of the run in seconds
+        metrics:
+          type: object
+          description: Metrics collected during the run
+        status:
+          type: string
+          description: The final status of the run
+          enum: [succeeded, failed, canceled]
+
+    RunResponse:
+      type: object
+      required:
+        - run_id
+        - content
+        - content_type
+        - event
+        - created_at
+        - agent_id
+        - session_id
+      properties:
+        run_id:
+          type: string
+          description: The unique identifier for the run
+        content:
+          type: string
+          description: The content of the response
+        content_type:
+          type: string
+          description: The type of content
+        event:
+          type: string
+          description: The event type
+        model:
+          type: string
+          description: The model used for the run
+        agent_id:
+          type: string
+          description: The unique identifier for the agent
+        session_id:
+          type: string
+          description: The unique identifier for the session
+        created_at:
+          type: integer
+          description: The timestamp when the response was created
+        messages:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/Message"
+          description: The messages associated with the run
+        tools:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/ToolExecution"
+          description: The tools executed in the run
+
+    Agent:
+      type: object
+      description: Definition of an agent.
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        model:
+          type: string
+          description: Base model used by the agent.
+        description:
+          type: string
+          description: Description or persona of the agent.
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tool"
+          description: Tools available to the agent.
+        created_at:
+          type: string
+          format: date-time
+    Tool:
+      type: object
+      description: A tool that an agent can use (function/plugin).
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        # Optionally, schema for input/output could be defined in future
+
+    Team:
+      type: object
+      description: A team of agents.
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        members:
+          type: array
+          description: Agents in the team.
+          items:
+            type: object
+            properties:
+              agent_id:
+                type: string
+              role:
+                type: string
+              is_leader:
+                type: boolean
+        created_at:
+          type: string
+          format: date-time
+    KnowledgeResult:
+      type: object
+      description: A search result from the knowledge base.
+      properties:
+        id:
+          type: string
+          description: Identifier of the document or knowledge item.
+        text:
+          type: string
+          description: Relevant snippet of the document.
+        score:
+          type: number
+          format: float
+          description: Similarity score (higher means more relevant).
+    AgentCompletionRequest:
+      type: object
+      required:
+        - environment
+        - messages
+      properties:
+        model:
+          type: string
+          default: claude-3-7-sonnet-latest
+          description: The Claude model to use
+        persona:
+          type: string
+          default: coder
+          description: The persona to use
+        environment:
+          $ref: "#/components/schemas/Environment"
+          description: The environment
+        tools:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/AgentTool"
+          description: The tools to use
+        messages:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/Message"
+          description: The messages to send to the agent
+
+    AgentCompletionResponse:
+      type: object
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+          description: The messages received from the agent
+
+    ToolExecution:
+      type: object
+      required:
+        - content
+        - tool_call_id
+        - tool_name
+        - tool_args
+        - metrics
+        - created_at
+      properties:
+        content:
+          type: string
+          description: The content of the tool execution
+        tool_call_id:
+          type: string
+          description: The ID of the tool call
+        tool_name:
+          type: string
+          description: The name of the tool
+        tool_args:
+          type: object
+          description: The arguments passed to the tool
+        tool_call_error:
+          type: boolean
+          default: false
+          description: Whether the tool execution resulted in an error
+        metrics:
+          type: object
+          description: The metrics of the tool execution
+        created_at:
+          type: integer
+          description: The created at timestamp
+
+    AgentCompletionChunk:
+      type: object
+      required:
+        - content_type
+        - event
+        - model
+        - run_id
+        - agent_id
+        - session_id
+        - created_at
+      properties:
+        content:
+          type: string
+          description: The content of the chunk
+        content_type:
+          type: string
+          description: The type of the content
+        event:
+          type: string
+          description: The event
+        model:
+          type: string
+          description: The model
+        run_id:
+          type: string
+          description: The run id
+        agent_id:
+          type: string
+          description: The agent id
+        session_id:
+          type: string
+          description: The session id
+        created_at:
+          type: integer
+          description: The created at timestamp
+        tools:
+          type: array
+          items:
+            type: object
+          description: Tool executions in the run (for RunStarted and RunCompleted events)
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+          description: Messages in the run (for RunStarted and RunCompleted events)
+
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: "#/components/schemas/ValidationError"
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+
+    SubscriptionPlanResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+        description:
+          anyOf:
+            - type: string
+          title: Description
+        stripe_price_id:
+          type: string
+          title: Stripe Price Id
+        stripe_product_id:
+          type: string
+          title: Stripe Product Id
+        features:
+          type: object
+          title: Features
+          default: {}
+        is_active:
+          type: boolean
+          title: Is Active
+          default: true
+        id:
+          type: string
+          format: uuid
+          title: Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - name
+        - stripe_price_id
+        - stripe_product_id
+        - id
+        - created_at
+        - updated_at
+      title: SubscriptionPlanResponse
+
+    UserSubscriptionCreate:
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          title: User Id
+        plan_id:
+          type: string
+          format: uuid
+          title: Plan Id
+      type: object
+      required:
+        - user_id
+        - plan_id
+      title: UserSubscriptionCreate
+
+    SubscriptionStatus:
+      type: string
+      enum:
+        - active
+        - canceled
+        - past_due
+        - trialing
+        - unpaid
+      title: SubscriptionStatus
+
+    UserSubscriptionResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        user_id:
+          type: string
+          format: uuid
+          title: User Id
+        plan_id:
+          type: string
+          format: uuid
+          title: Plan Id
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+        stripe_customer_id:
+          anyOf:
+            - type: string
+          title: Stripe Customer Id
+        stripe_subscription_id:
+          anyOf:
+            - type: string
+          title: Stripe Subscription Id
+        current_period_start:
+          anyOf:
+            - type: string
+              format: date-time
+          title: Current Period Start
+        current_period_end:
+          anyOf:
+            - type: string
+              format: date-time
+          title: Current Period End
+        cancel_at_period_end:
+          type: boolean
+          title: Cancel At Period End
+          default: false
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+        - id
+        - user_id
+        - plan_id
+        - status
+        - created_at
+        - updated_at
+      title: UserSubscriptionResponse
+
+    ServerSetupRequest:
+      properties:
+        stripe_api_key:
+          anyOf:
+            - type: string
+          title: Stripe Api Key
+        stripe_webhook_secret:
+          anyOf:
+            - type: string
+          title: Stripe Webhook Secret
+      type: object
+      title: ServerSetupRequest
+      description: Request model for server initial setup.
+
+    ServerSetupResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        message:
+          type: string
+          title: Message
+        configured_keys:
+          additionalProperties:
+            type: boolean
+          type: object
+          title: Configured Keys
+      type: object
+      required:
+        - status
+        - message
+        - configured_keys
+      title: ServerSetupResponse
+      description: Response model for server setup.
+
+    OAuthAuthorizationResponse:
+      type: object
+      required:
+        - authorization_url
+        - state
+      properties:
+        authorization_url:
+          type: string
+          format: uri
+          description: The URL to redirect the user to for OAuth login
+        state:
+          type: string
+          description: CSRF protection state parameter to verify in the callback
+
+    OAuthDeviceCodeResponse:
+      type: object
+      required:
+        - device_code
+        - user_code
+        - verification_uri
+        - verification_uri_complete
+        - expires_in
+        - interval
+      properties:
+        device_code:
+          type: string
+          description: Code that identifies the device verification request
+        user_code:
+          type: string
+          description: User-friendly code to enter on the verification page
+        verification_uri:
+          type: string
+          format: uri
+          description: URI where the user should enter the user_code
+        verification_uri_complete:
+          type: string
+          format: uri
+          description: URI with the user_code embedded
+        expires_in:
+          type: integer
+          description: The lifetime in seconds of the device code
+        interval:
+          type: integer
+          description: The minimum time in seconds to wait between polling requests
+
+    AuthTokenResponse:
+      type: object
+      required:
+        - token
+        - token_type
+        - expires_in
+      properties:
+        token:
+          type: string
+          description: Bearer JWT for authenticated requests.
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Expiration time in seconds.
+
+    OAuthDeviceTokenRequest:
+      type: object
+      required:
+        - device_code
+      properties:
+        device_code:
+          type: string
+          description: The device code returned from the initial OAuth device flow request
+
+    ApiKeyCreate:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          title: Name
+          description: A descriptive name for the API key to help identify its purpose
+        expires_in:
+          type: integer
+          title: Expires In
+          description: Number of days until the API key expires (0 for no expiration)
+          default: 0
+        scopes:
+          type: array
+          items:
+            type: string
+            enum: [read, write, admin]
+          title: Scopes
+          description: Permission scopes for the API key
+          default: ["read", "write"]
+        metadata:
+          type: object
+          additionalProperties: true
+          title: Metadata
+          description: Optional custom metadata for the API key (e.g., application name, environment)
+          default: {}
+
+    ApiKeyResponse:
+      type: object
+      required:
+        - id
+        - api_key
+        - name
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: ID
+          description: Unique identifier for the API key
+        api_key:
+          type: string
+          title: API Key
+          description: The actual API key value (only returned once at creation)
+        name:
+          type: string
+          title: Name
+          description: The descriptive name of the API key
+        prefix:
+          type: string
+          title: Prefix
+          description: First few characters of the API key for identification
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: Timestamp when the API key was created
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+          description: Timestamp when the API key will expire (null if never expires)
+        scopes:
+          type: array
+          items:
+            type: string
+          title: Scopes
+          description: Permission scopes assigned to the API key
+        metadata:
+          type: object
+          additionalProperties: true
+          title: Metadata
+          description: Custom metadata for the API key
+        user_id:
+          type: string
+          format: uuid
+          title: User ID
+          description: ID of the user who owns this API key
+
+    ApiKeyInfo:
+      type: object
+      required:
+        - id
+        - name
+        - created_at
+        - is_active
+        - last_used_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: ID
+          description: Unique identifier for the API key
+        name:
+          type: string
+          title: Name
+          description: The descriptive name of the API key
+        prefix:
+          type: string
+          title: Prefix
+          description: First few characters of the API key for identification
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: Timestamp when the API key was created
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+          description: Timestamp when the API key will expire (null if never expires)
+        is_active:
+          type: boolean
+          title: Is Active
+          description: Whether the API key is currently active
+          default: true
+        last_used_at:
+          type: string
+          format: date-time
+          title: Last Used At
+          description: Timestamp when the API key was last used (null if never used)
+        scopes:
+          type: array
+          items:
+            type: string
+          title: Scopes
+          description: Permission scopes assigned to the API key
+        metadata:
+          type: object
+          additionalProperties: true
+          title: Metadata
+          description: Custom metadata for the API key
+        usage:
+          type: object
+          properties:
+            total_requests:
+              type: integer
+              title: Total Requests
+              description: Total number of API requests made with this key
+            total_tokens:
+              type: integer
+              title: Total Tokens
+              description: Total number of tokens consumed by this key
+            monthly_requests:
+              type: integer
+              title: Monthly Requests
+              description: Number of API requests made this month
+            monthly_tokens:
+              type: integer
+              title: Monthly Tokens
+              description: Number of tokens consumed this month
+          title: Usage
+          description: Usage statistics for the API key
+
+    ApiKeyRevocationResponse:
+      type: object
+      required:
+        - message
+        - id
+        - revoked_at
+      properties:
+        message:
+          type: string
+          title: Message
+          description: Success message confirming API key revocation
+          example: "API key successfully revoked"
+        id:
+          type: string
+          format: uuid
+          title: ID
+          description: ID of the revoked API key
+        revoked_at:
+          type: string
+          format: date-time
+          title: Revoked At
+          description: Timestamp when the API key was revoked
+
+    ApiKeyUsageResponse:
+      type: object
+      required:
+        - usage_data
+      properties:
+        usage_data:
+          type: object
+          description: Detailed usage statistics for the API key
+          properties:
+            total_requests:
+              type: integer
+              title: Total Requests
+              description: Total number of API requests made with this key
+            total_tokens:
+              type: integer
+              title: Total Tokens
+              description: Total number of tokens consumed by this key
+            monthly_requests:
+              type: integer
+              title: Monthly Requests
+              description: Number of API requests made this month
+            monthly_tokens:
+              type: integer
+              title: Monthly Tokens
+              description: Number of tokens consumed this month
+            billing_info:
+              type: object
+              description: Billing information for the API key
+              properties:
+                stripe_customer_id:
+                  type: string
+                  title: Stripe Customer ID
+                stripe_subscription_id:
+                  type: string
+                  title: Stripe Subscription ID
+                current_period_start:
+                  type: string
+                  format: date-time
+                  title: Current Period Start
+                current_period_end:
+                  type: string
+                  format: date-time
+                  title: Current Period End
+                cancel_at_period_end:
+                  type: boolean
+                  title: Cancel At Period End
+                  default: false
+                created_at:
+                  type: string
+                  format: date-time
+                  title: Created At
+                updated_at:
+                  type: string
+                  format: date-time
+                  title: Updated At
+        time_series:
+          type: array
+          description: Time-series data when group_by parameter is used
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+                description: Date for this data point
+              requests:
+                type: integer
+                description: Number of requests
+              tokens:
+                type: integer
+                description: Number of tokens
+              cost:
+                type: number
+                format: float
+                description: Cost for this period
+      title: ApiKeyUsageResponse
+
+    Usage:
+      type: object
+      description: Token usage report.
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer

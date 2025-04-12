@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  app:
+    image: swedishembedded/workstation:latest
+    command: sleep infinity
+    network_mode: host
+    environment:
+      - DISPLAY=:1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

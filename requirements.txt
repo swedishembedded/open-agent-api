@@ -1,0 +1,4 @@
+openapi-generator-cli==7.10.0
+urllib3 >= 2.1.0, < 3.0.0
+build
+twine
