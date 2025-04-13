@@ -6,8 +6,10 @@ info:
     autonomous agents with tool usage, multi-agent teams, knowledge base search,
     and optional billing integration.
     Clients can authenticate via magic link or OAuth2 to obtain a token, or use API keys.
-  version: "0.1.0"
+  version: "0.2.0"
 servers:
+  - url: https://localhost:8007/v1
+    description: Local API
   - url: https://api.swedishembedded.com/v1
     description: Swedish Embedded API
   - url: https://api.agentsven.com/v1
@@ -40,7 +42,10 @@ paths:
       summary: Create a new agent
       description: |
         Registers a new agent with given configuration. The agent will be associated with the authenticated user's account.
-        Agents have a base model and optional tools/knowledge that they can use.
+
+        Agents have a base model and optional user tools that they can use.
+
+        The agent can also use tools that are provided on the server side. These tools are either predefined by the server such as the web search tool or defined by the user but executed on the server - such as MCP based tools.
       security:
         - ApiKey: []
       requestBody:
@@ -48,23 +53,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [name, model]
-              properties:
-                name:
-                  type: string
-                  description: Human-readable name for the agent.
-                model:
-                  type: string
-                  description: ID of the base model the agent will use (e.g. "gpt-4").
-                description:
-                  type: string
-                  description: Optional description or persona of the agent.
-                tools:
-                  type: array
-                  description: Optional list of tools this agent can use.
-                  items:
-                    $ref: "#/components/schemas/Tool"
+              $ref: "#/components/schemas/Agent"
       responses:
         "201":
           description: Agent created successfully
@@ -79,7 +68,8 @@ paths:
     get:
       tags: [Agents]
       summary: List my agents
-      description: "Retrieve all agents owned by the authenticated user."
+      description: |
+        Retrieve all agents owned by the authenticated user.
       security:
         - ApiKey: []
       responses:
@@ -121,6 +111,52 @@ paths:
           description: Agent not found or not owned by user.
         "401":
           description: Unauthorized.
+    put:
+      tags: [Agents]
+      summary: Update an agent
+      description: Update the configuration of an existing agent.
+      security:
+        - ApiKey: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID of the agent to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Agent"
+      responses:
+        "200":
+          description: Agent updated successfully
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Agent not found.
+    delete:
+      tags: [Agents]
+      summary: Delete an agent
+      description: Delete an agent
+      security:
+        - ApiKey: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID of the agent to delete.
+      responses:
+        "200":
+          description: Agent deleted successfully
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Agent not found.
   /agents/{agentId}/chat:
     post:
       tags: [Agents]
@@ -150,11 +186,11 @@ paths:
                   type: array
                   description: The conversation history or prompt for the agent.
                   items:
-                    $ref: "#/components/schemas/Message"
+                    $ref: "#/components/schemas/AgentMessage"
                 tools:
                   type: array
                   items:
-                    $ref: "#/components/schemas/Tool"
+                    $ref: "#/components/schemas/AgentToolkitFunction"
                   description: Optional list of available tools for this interaction (overrides or supplements agent's default tools).
       responses:
         "200":
@@ -167,7 +203,7 @@ paths:
                 type: object
                 properties:
                   message:
-                    $ref: "#/components/schemas/Message"
+                    $ref: "#/components/schemas/AgentMessage"
                   usage:
                     $ref: "#/components/schemas/Usage"
                   finish_reason:
@@ -762,26 +798,28 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, agents]
+              required: [name, agents, tools]
               properties:
                 name:
                   type: string
                   description: Team name.
-                agents:
+                members:
                   type: array
                   description: Agents to include in the team.
                   items:
                     type: object
-                    required: [agent_id]
+                    required: [agent_id, role]
                     properties:
                       agent_id:
                         type: string
                       role:
                         type: string
                         description: Role of this agent in the team (e.g. "Researcher", "Coder").
-                leader_id:
-                  type: string
-                  description: Optional. Agent ID to designate as team leader (if not provided, the first agent or system default will be leader).
+                tools:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/AgentToolkit"
+                  description: Toolkits available to the manager of the team
       responses:
         "201":
           description: Team created.
@@ -816,7 +854,9 @@ paths:
     get:
       tags: [Teams]
       summary: Get team details
-      description: Retrieve info about a specific team, including members and roles.
+      description: |
+        Retrieve info about a specific team, including members and roles.
+        Also includes toolkits available to the manager of the team.
       security:
         - ApiKey: []
       parameters:
@@ -863,12 +903,12 @@ paths:
                 messages:
                   type: array
                   items:
-                    $ref: "#/components/schemas/Message"
+                    $ref: "#/components/schemas/AgentMessage"
                   description: Conversation history or prompt.
                 tools:
                   type: array
                   items:
-                    $ref: "#/components/schemas/Tool"
+                    $ref: "#/components/schemas/AgentToolkitFunction"
                   description: Optional tools available to the team (if any global tools to provide).
       responses:
         "200":
@@ -879,7 +919,7 @@ paths:
                 type: object
                 properties:
                   message:
-                    $ref: "#/components/schemas/Message"
+                    $ref: "#/components/schemas/AgentMessage"
                   usage:
                     $ref: "#/components/schemas/Usage"
                   finish_reason:
@@ -896,6 +936,75 @@ paths:
           description: Unauthorized.
         "404":
           description: Team not found.
+  #####################
+  # Tools functions   #
+  #####################
+  /tools:
+    get:
+      tags: [Tools]
+      summary: List tools
+      description: |
+        List all toolkits available to the user.
+
+        Toolkits can be included in teams and agents giving agent access to specific tools.
+      operationId: get_tools
+      security:
+        - ApiKey: []
+      responses:
+        "200":
+          description: List of tools.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentToolkitSummary"
+
+  /tools/{tool_id}:
+    get:
+      tags: [Tools]
+      summary: Get tool details
+      description: Get details of a specific tool
+      security:
+        - ApiKey: []
+      parameters:
+        - name: tool_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID of the tool
+      responses:
+        "200":
+          description: Tool details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalTool"
+        "404":
+          description: Tool not found.
+        "401":
+          description: Unauthorized.
+    delete:
+      tags: [Tools]
+      summary: Delete a tool
+      description: Delete a tool
+      security:
+        - ApiKey: []
+      parameters:
+        - name: tool_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID of the tool
+      responses:
+        "200":
+          description: Tool deleted.
+        "404":
+          description: Tool not found.
+        "401":
+          description: Unauthorized.
   #####################
   # Knowledge Search  #
   #####################
@@ -951,7 +1060,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object    # The exact schema depends on Stripe's event format; Stripe sends an 'event' object.
+              type: object # The exact schema depends on Stripe's event format; Stripe sends an 'event' object.
       responses:
         "200":
           description: Webhook received successfully (Stripe requires a 2xx to not retry).
@@ -959,9 +1068,9 @@ paths:
           description: Bad signature or event (ignored).
         "500":
           description: Server error.
-  ##################
+  ###################
   # Chat Completion #
-  ##################
+  ###################
   /chat/completions:
     post:
       tags: [Chat]
@@ -1174,7 +1283,7 @@ components:
       description: >
         Use a Bearer token for authorization. This can be an API key (for direct API access) or a JWT obtained via login.
   schemas:
-    Environment:
+    AgentEnvironment:
       type: object
       required:
         - working_directory
@@ -1187,8 +1296,9 @@ components:
           type: string
           description: The platform the agent is running on
 
-    Function:
+    AgentToolkitFunction:
       type: object
+      description: A function that an agent can use (function/plugin).
       required:
         - name
         - description
@@ -1208,29 +1318,77 @@ components:
           description: Whether the function is strict
           default: false
 
-    AgentTool:
+    AgentToolkitSummary:
       type: object
+      description: |
+        A short summary of a toolkit that includes only the name, instructions and function names without including detailed function descriptions.
       required:
         - name
+        - instructions
         - functions
       properties:
         name:
           type: string
           description: The name of the tool
+        instructions:
+          type: string
+          description: Optional instructions for the toolkit
         functions:
           type: array
+          default: []
           items:
-            $ref: "#/components/schemas/Function"
+            type: string
           description: The functions of the tool
 
-    Message:
+    AgentToolkit:
+      type: object
+      required:
+        - name
+        - instructions
+      properties:
+        name:
+          type: string
+          description: The name of the tool
+        instructions:
+          type: string
+          description: Optional instructions for the toolkit
+        functions:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/AgentToolkitFunction"
+          description: The functions of the tool
+
+    ExternalTool:
+      type: object
+      required:
+        - name
+        - description
+        - parameters
+        - execute
+      properties:
+        type:
+          type: string
+          enum: [mcp]
+          description: The type of tool
+        name:
+          type: string
+          description: The name of the tool
+        url:
+          type: string
+          description: The URL endpoint for the external tool
+        api_key:
+          type: string
+          description: The API key for the external tool
+
+    AgentMessage:
       type: object
       required:
         - role
       properties:
         role:
           type: string
-          enum: [system, user, assistant]
+          enum: [system, user, assistant, tool]
           description: The role of the message sender
         content:
           type: string
@@ -1284,11 +1442,13 @@ components:
           title: From History
           default: false
         metrics:
-          $ref: "#/components/schemas/MessageMetrics"
+          type: object
+          $ref: "#/components/schemas/AgentMessageMetrics"
         references:
-          $ref: "#/components/schemas/MessageReferences"
+          $ref: "#/components/schemas/AgentMessageReferences"
         created_at:
           type: integer
+          default: 0
           title: Created At
 
     ChatCompletionRequest:
@@ -1301,7 +1461,7 @@ components:
         messages:
           type: array
           items:
-            $ref: "#/components/schemas/Message"
+            $ref: "#/components/schemas/AgentMessage"
         temperature:
           type: number
           format: float
@@ -1324,7 +1484,7 @@ components:
           oneOf:
             - type: string
             - type: array
-              items: 
+              items:
                 type: string
           description: Stop sequence(s) to halt generation.
         max_tokens:
@@ -1361,15 +1521,21 @@ components:
               index:
                 type: integer
               message:
-                $ref: "#/components/schemas/Message"
+                $ref: "#/components/schemas/AgentMessage"
               finish_reason:
                 type: string
                 description: e.g. stop, length, etc.
         usage:
           $ref: "#/components/schemas/Usage"
-    MessageMetrics:
+    AgentMessageMetrics:
       type: object
       title: MessageMetrics
+      required:
+        - input_tokens
+        - output_tokens
+        - total_tokens
+        - prompt_tokens
+        - completion_tokens
       properties:
         input_tokens:
           type: integer
@@ -1412,7 +1578,7 @@ components:
             - type: number
           title: Time To First Token
 
-    MessageReferences:
+    AgentMessageReferences:
       type: object
       required:
         - query
@@ -1611,7 +1777,7 @@ components:
           type: array
           nullable: true
           items:
-            $ref: "#/components/schemas/Message"
+            $ref: "#/components/schemas/AgentMessage"
           description: The messages associated with the run
         tools:
           type: array
@@ -1623,34 +1789,35 @@ components:
     Agent:
       type: object
       description: Definition of an agent.
+      required:
+        - name
+        - model
       properties:
         id:
           type: string
+          description: Unique identifier for the agent.
         name:
           type: string
+          description: Human-readable name for the agent.
         model:
           type: string
           description: Base model used by the agent.
         description:
           type: string
           description: Description or persona of the agent.
+        instructions:
+          type: string
+          description: Instructions for the agent.
         tools:
           type: array
           items:
-            $ref: "#/components/schemas/Tool"
-          description: Tools available to the agent.
+            $ref: "#/components/schemas/AgentToolkit"
+          description: |
+            Toolkits available to the agent.
+            A toolkit is a collection of tools that can be used by the agent.
         created_at:
           type: string
           format: date-time
-    Tool:
-      type: object
-      description: A tool that an agent can use (function/plugin).
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-        # Optionally, schema for input/output could be defined in future
 
     Team:
       type: object
@@ -1672,9 +1839,15 @@ components:
                 type: string
               is_leader:
                 type: boolean
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentToolkit"
+          description: Toolkits available to the manager of the team
         created_at:
           type: string
           format: date-time
+
     KnowledgeResult:
       type: object
       description: A search result from the knowledge base.
@@ -1695,28 +1868,28 @@ components:
         - environment
         - messages
       properties:
+        id:
+          type: string
+          default: simple
+          description: The id of the agent to use
         model:
           type: string
           default: claude-3-7-sonnet-latest
           description: The Claude model to use
-        persona:
-          type: string
-          default: coder
-          description: The persona to use
         environment:
-          $ref: "#/components/schemas/Environment"
+          $ref: "#/components/schemas/AgentEnvironment"
           description: The environment
         tools:
           type: array
           default: []
           items:
-            $ref: "#/components/schemas/AgentTool"
+            $ref: "#/components/schemas/AgentToolkit"
           description: The tools to use
         messages:
           type: array
           default: []
           items:
-            $ref: "#/components/schemas/Message"
+            $ref: "#/components/schemas/AgentMessage"
           description: The messages to send to the agent
 
     AgentCompletionResponse:
@@ -1727,7 +1900,7 @@ components:
         messages:
           type: array
           items:
-            $ref: "#/components/schemas/Message"
+            $ref: "#/components/schemas/AgentMessage"
           description: The messages received from the agent
 
     ToolExecution:
@@ -1802,11 +1975,11 @@ components:
           type: array
           items:
             type: object
-          description: Tool executions in the run (for RunStarted and RunCompleted events)
+          description: Functions executed in the run (for RunStarted and RunCompleted events)
         messages:
           type: array
           items:
-            $ref: "#/components/schemas/Message"
+            $ref: "#/components/schemas/AgentMessage"
           description: Messages in the run (for RunStarted and RunCompleted events)
 
     HTTPValidationError:

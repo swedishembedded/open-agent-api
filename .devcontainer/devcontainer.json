@@ -2,10 +2,7 @@
 	"name": "Development Container",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "app",
-	"workspaceFolder": "/workspaces",
-	"mounts": [
-		"source=${localWorkspaceFolder},target=/workspaces,type=bind,consistency=cached"
-	],
+	"workspaceFolder": "/workspaces/open-agent-api",
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -15,7 +12,8 @@
 				"ms-python.isort",
 				"ms-python.pydantic",
 				"ms-vscode-remote.remote-containers",
-				"ms-vscode-remote.vscode-remote-extensionpack"
+				"ms-vscode-remote.vscode-remote-extensionpack",
+				"42crunch.vscode-openapi"
 			],
 			"settings": {
 				"editor.formatOnSave": true

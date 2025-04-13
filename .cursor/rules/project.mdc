@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Open Agent API
+
+- There are no python files in this repository 
+- All code is generated from the OpenAPI schema
+- open-agent-api.yaml contains OpenAPI schema for the api

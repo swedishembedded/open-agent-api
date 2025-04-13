@@ -6,7 +6,7 @@ generate:
 		-g python \
 		-o python/client/ \
 		--package-name open_agent_api \
-  		--additional-properties=packageVersion=0.1.0
+  		--additional-properties=packageVersion=0.2.0
 	openapi-generator-cli generate \
 		-i open-agent-api.yaml \
 		-g python-fastapi \

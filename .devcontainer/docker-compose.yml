@@ -3,6 +3,10 @@ version: '3.8'
 services:
   app:
     image: swedishembedded/workstation:latest
+    volumes:
+      - ./../:/workspaces/open-agent-api
+      - ~/.ssh:/home/user/.ssh:ro
+      - /etc/hosts:/etc/hosts:ro
     command: sleep infinity
     network_mode: host
     environment:
