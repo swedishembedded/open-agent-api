@@ -157,7 +157,7 @@ paths:
           description: Unauthorized.
         "404":
           description: Agent not found.
-  /agents/{agentId}/chat:
+  /agents/{agentId}/run:
     post:
       tags: [Agents]
       summary: Interact with an agent (chat interface)
@@ -753,15 +753,15 @@ paths:
                     enum: [status, chunk]
                   data:
                     oneOf:
-                      - type: object
+                      - type: array
                         items:
                           $ref: "#/components/schemas/RunResponse"
                         title: RunResponse
-                      - type: object
+                      - type: array
                         items:
                           $ref: "#/components/schemas/RunStarted"
                         title: RunStarted
-                      - type: object
+                      - type: array
                         items:
                           $ref: "#/components/schemas/RunCompleted"
                         title: RunCompleted
@@ -877,10 +877,10 @@ paths:
           description: Team not found or not accessible.
         "401":
           description: Unauthorized.
-  /teams/{teamId}/chat:
+  /teams/{teamId}/run:
     post:
       tags: [Teams]
-      summary: Interact with a team of agents
+      summary: Run a team of agents
       description: |
         Send a message to a team. The team leader agent will coordinate members to respond.
         Supports streaming SSE responses similar to single-agent chat.
@@ -1785,6 +1785,366 @@ components:
           items:
             $ref: "#/components/schemas/ToolExecution"
           description: The tools executed in the run
+
+    TeamRunRequest:
+      type: object
+      description: Request for Team.run() functions
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentMessage"
+          description: |
+            The messages to send to the team, can be a string, list, dict, or Message object
+        stream:
+          type: boolean
+          default: false
+          description: Whether to stream the response
+        stream_intermediate_steps:
+          type: boolean
+          default: false
+          description: Whether to stream intermediate steps
+        retries:
+          type: integer
+          nullable: true
+          description: Number of retries if the run fails
+        audio:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/Audio"
+          description: Audio files to include with the request
+        images:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/Image"
+          description: Images to include with the request
+        videos:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/Video"
+          description: Videos to include with the request
+        files:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/File"
+          description: Files to include with the request
+
+    File:
+      type: object
+      description: File object for input/output
+      properties:
+        url:
+          type: string
+          nullable: true
+          description: Remote location for file
+        filepath:
+          type: string
+          nullable: true
+          description: Absolute local location for file
+        content:
+          type: object
+          nullable: true
+          description: Actual file bytes content
+        mime_type:
+          type: string
+          nullable: true
+          description: MIME type of the file
+
+    Image:
+      type: object
+      description: Image object for input/output
+      properties:
+        url:
+          type: string
+          nullable: true
+          description: Remote location for image
+        filepath:
+          type: string
+          nullable: true
+          description: Absolute local location for image
+        content:
+          type: object
+          nullable: true
+          description: Actual image bytes content
+        format:
+          type: string
+          nullable: true
+          description: Image format (e.g. png, jpeg, webp, gif)
+        detail:
+          type: string
+          nullable: true
+          description: Image detail level (low, medium, high or auto) per OpenAI spec
+        id:
+          type: string
+          nullable: true
+          description: Unique identifier for the image
+
+    TeamRunResponse:
+      type: object
+      description: Response returned by Team.run() functions
+      properties:
+        event:
+          type: string
+          description: The event type
+        content:
+          type: string
+          description: The content of the response
+        content_type:
+          type: string
+          description: The type of content
+          default: "str"
+        thinking:
+          type: string
+          nullable: true
+          description: Thinking process of the team
+        messages:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/AgentMessage"
+          description: The messages associated with the run
+        metrics:
+          type: object
+          nullable: true
+          description: Metrics related to the team run
+        model:
+          type: string
+          nullable: true
+          description: The model used for the run
+        member_responses:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/TeamRunResponse"
+              - $ref: "#/components/schemas/RunResponse"
+          description: Responses from individual team members
+          default: []
+        run_id:
+          type: string
+          nullable: true
+          description: The unique identifier for the run
+        team_id:
+          type: string
+          nullable: true
+          description: The unique identifier for the team
+        session_id:
+          type: string
+          nullable: true
+          description: The unique identifier for the session
+        tools:
+          type: array
+          nullable: true
+          items:
+            type: object
+          description: Tools used in the team run
+        formatted_tool_calls:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Formatted representation of tool calls
+        images:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ImageArtifact"
+          description: Images generated from member runs
+        videos:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/VideoArtifact"
+          description: Videos generated from member runs
+        audio:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/AudioArtifact"
+          description: Audio generated from member runs
+        response_audio:
+          $ref: "#/components/schemas/AudioResponse"
+          nullable: true
+          description: Model audio response
+        citations:
+          $ref: "#/components/schemas/Citations"
+          nullable: true
+          description: Citations for the response
+        extra_data:
+          $ref: "#/components/schemas/RunResponseExtraData"
+          nullable: true
+          description: Additional data for the response
+        created_at:
+          type: integer
+          description: The timestamp when the response was created
+
+    Media:
+      type: object
+      description: Base media object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the media
+        original_prompt:
+          type: string
+          nullable: true
+          description: Original prompt used to generate the media
+        revised_prompt:
+          type: string
+          nullable: true
+          description: Revised prompt used to generate the media
+
+    VideoArtifact:
+      type: object
+      description: Video artifact generated during a run
+      allOf:
+        - $ref: "#/components/schemas/Media"
+        - type: object
+          properties:
+            url:
+              type: string
+              description: Remote location for the video file
+            eta:
+              type: string
+              nullable: true
+              description: Estimated time of arrival/completion
+            length:
+              type: string
+              nullable: true
+              description: Length of the video
+
+    ImageArtifact:
+      type: object
+      description: Image artifact generated during a run
+      allOf:
+        - $ref: "#/components/schemas/Media"
+        - type: object
+          properties:
+            url:
+              type: string
+              nullable: true
+              description: Remote location for the image file
+            content:
+              type: string
+              format: byte
+              nullable: true
+              description: Actual image bytes content
+            mime_type:
+              type: string
+              nullable: true
+              description: MIME type of the image
+            alt_text:
+              type: string
+              nullable: true
+              description: Alternative text description of the image
+
+    AudioArtifact:
+      type: object
+      description: Audio artifact generated during a run
+      allOf:
+        - $ref: "#/components/schemas/Media"
+        - type: object
+          properties:
+            url:
+              type: string
+              nullable: true
+              description: Remote location for the audio file
+            base64_audio:
+              type: string
+              nullable: true
+              description: Base64-encoded audio data
+            length:
+              type: string
+              nullable: true
+              description: Length of the audio
+            mime_type:
+              type: string
+              nullable: true
+              description: MIME type of the audio
+
+    Video:
+      type: object
+      description: Video object for input/output
+      properties:
+        filepath:
+          type: string
+          nullable: true
+          description: Absolute local location for video
+        content:
+          type: string
+          nullable: true
+          description: Base64-encoded compressed video content
+        format:
+          type: string
+          nullable: true
+          description: Video format (e.g. mp4, mov, avi)
+
+    Audio:
+      type: object
+      description: Audio object for input/output
+      properties:
+        content:
+          type: string
+          nullable: true
+          description: Base64-encoded compressed audio content
+        filepath:
+          type: string
+          nullable: true
+          description: Absolute local location for audio
+        url:
+          type: string
+          nullable: true
+          description: Remote location for audio
+        format:
+          type: string
+          nullable: true
+          description: Audio format
+
+    AudioResponse:
+      type: object
+      description: Audio response from a model
+      properties:
+        id:
+          type: string
+          nullable: true
+          description: Unique identifier for the audio response
+        content:
+          type: string
+          nullable: true
+          description: Base64 encoded audio content
+        expires_at:
+          type: integer
+          nullable: true
+          description: Timestamp when the audio response expires
+        transcript:
+          type: string
+          nullable: true
+          description: Text transcript of the audio
+        mime_type:
+          type: string
+          nullable: true
+          description: MIME type of the audio
+        sample_rate:
+          type: integer
+          nullable: true
+          default: 24000
+          description: Sample rate of the audio
+        channels:
+          type: integer
+          nullable: true
+          default: 1
+          description: Number of audio channels
+
+    RunResponseExtraData:
+      type: object
+      description: Additional data for a run response
+      properties:
+        extra:
+          type: object
+          description: Extra data fields
 
     Agent:
       type: object
