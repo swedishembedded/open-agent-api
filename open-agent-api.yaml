@@ -313,13 +313,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [email]
-              properties:
-                email:
-                  type: string
-                  format: email
-                  description: Email address to send the magic login link to.
+              $ref: "#/components/schemas/AuthMagicLinkRequest"
       responses:
         "200":
           description: Magic link email sent (or response is always 204 No Content on success).
@@ -475,7 +469,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthTokenResponse"
+                $ref: "#/components/schemas/OAuthCallbackResponse"
         "400":
           description: Missing or invalid code.
         "401":
@@ -500,7 +494,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthTokenResponse"
+                $ref: "#/components/schemas/OAuthCallbackResponse"
         "400":
           description: Invalid device code
         "401":
@@ -1400,10 +1394,9 @@ components:
           type: string
           title: Tool Call Id
         tool_calls:
-          anyOf:
-            - type: array
-              items:
-                type: object
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
           title: Tool Calls
         thinking:
           type: string
@@ -1442,7 +1435,6 @@ components:
           title: From History
           default: false
         metrics:
-          type: object
           $ref: "#/components/schemas/AgentMessageMetrics"
         references:
           $ref: "#/components/schemas/AgentMessageReferences"
@@ -1450,6 +1442,75 @@ components:
           type: integer
           default: 0
           title: Created At
+
+    AuthMagicLinkRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address to send the magic login link to.
+        base_url:
+          type: string
+          description: The base URL of the application
+
+    AuthResponse:
+      type: object
+      required:
+        - message
+        - jwt_token
+        - token_type
+        - expires_at
+        - verified
+      properties:
+        message:
+          type: string
+          description: Server response message
+        jwt_token:
+          type: string
+          description: JWT token for authentication
+        token_type:
+          type: string
+          description: Type of token (bearer)
+          example: bearer
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration timestamp of the token
+        verified:
+          type: boolean
+          description: Whether the email has been verified
+          default: false
+
+    ToolCall:
+      type: object
+      required:
+        - id
+        - type
+        - function
+      properties:
+        id:
+          type: string
+          description: The ID of the tool to call
+        type:
+          type: string
+          enum: [function, tool]
+          description: The type of the tool or function
+        function:
+          description: The function to call
+          type: object
+          required:
+            - name
+            - arguments
+          properties:
+            name:
+              type: string
+              description: The name of the function to call
+            arguments:
+              type: string
+              description: The arguments to pass to the function
 
     ChatCompletionRequest:
       type: object
@@ -2266,16 +2327,17 @@ components:
     ToolExecution:
       type: object
       required:
-        - content
         - tool_call_id
         - tool_name
         - tool_args
-        - metrics
-        - created_at
       properties:
+        role:
+          type: string
+          enum: [tool]
+          description: The role of the message sender
         content:
           type: string
-          description: The content of the tool execution
+          description: The content of the message
         tool_call_id:
           type: string
           description: The ID of the tool call
@@ -2289,12 +2351,6 @@ components:
           type: boolean
           default: false
           description: Whether the tool execution resulted in an error
-        metrics:
-          type: object
-          description: The metrics of the tool execution
-        created_at:
-          type: integer
-          description: The created at timestamp
 
     AgentCompletionChunk:
       type: object
@@ -2541,6 +2597,10 @@ components:
       required:
         - authorization_url
         - state
+        - jwt_token
+        - token_type
+        - expires_at
+        - verified
       properties:
         authorization_url:
           type: string
@@ -2549,6 +2609,20 @@ components:
         state:
           type: string
           description: CSRF protection state parameter to verify in the callback
+        jwt_token:
+          type: string
+          description: JWT token for authentication (unverified at this point)
+        token_type:
+          type: string
+          example: bearer
+          description: Type of the authentication token
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration timestamp of the token
+        verified:
+          type: boolean
+          description: Whether the authentication has been verified
 
     OAuthDeviceCodeResponse:
       type: object
@@ -2570,10 +2644,6 @@ components:
           type: string
           format: uri
           description: URI where the user should enter the user_code
-        verification_uri_complete:
-          type: string
-          format: uri
-          description: URI with the user_code embedded
         expires_in:
           type: integer
           description: The lifetime in seconds of the device code
@@ -2581,22 +2651,23 @@ components:
           type: integer
           description: The minimum time in seconds to wait between polling requests
 
-    AuthTokenResponse:
+    OAuthCallbackResponse:
       type: object
       required:
-        - token
+        - token_id
         - token_type
-        - expires_in
+        - expires_at
       properties:
-        token:
+        token_id:
           type: string
-          description: Bearer JWT for authenticated requests.
+          description: The ID of the token.
         token_type:
           type: string
           example: Bearer
-        expires_in:
-          type: integer
-          description: Expiration time in seconds.
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration time of the token.
 
     OAuthDeviceTokenRequest:
       type: object
