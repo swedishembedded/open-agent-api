@@ -214,9 +214,11 @@ paths:
                 type: string
                 description: |
                   Server-Sent Events stream. The stream will contain events:
-                  - RunStarted (agent started processing)
-                  - RunResponse (partial output or tool request)
-                  - RunCompleted (final output)
+                  - RunStartedEvent (agent started processing)
+                  - ToolCallStartedEvent (tool started processing)
+                  - RunResponseEvent (partial output or tool request)
+                  - RunCompletedEvent (final output)
+                  - ToolCallCompletedEvent (tool completed)
                   Each event's data is a JSON object with at least a "type" field and additional fields depending on type.
                   For example, a ToolRequest event may have { "type": "ToolRequest", "tool": "...", "input": "..." }.
         "400":
@@ -744,21 +746,20 @@ paths:
                   event:
                     type: string
                     description: The type of event
-                    enum: [status, chunk]
+                    enum:
+                      - status
+                      - RunResponseEvent
+                      - RunStartedEvent
+                      - RunCompletedEvent
+                      - ToolCallStartedEvent
+                      - ToolCallCompletedEvent
                   data:
                     oneOf:
-                      - type: array
-                        items:
-                          $ref: "#/components/schemas/RunResponse"
-                        title: RunResponse
-                      - type: array
-                        items:
-                          $ref: "#/components/schemas/RunStarted"
-                        title: RunStarted
-                      - type: array
-                        items:
-                          $ref: "#/components/schemas/RunCompleted"
-                        title: RunCompleted
+                      - $ref: "#/components/schemas/RunResponseEvent"
+                      - $ref: "#/components/schemas/RunStartedEvent"
+                      - $ref: "#/components/schemas/RunCompletedEvent"
+                      - $ref: "#/components/schemas/ToolCallStartedEvent"
+                      - $ref: "#/components/schemas/ToolCallCompletedEvent"
 
   /mcp/messages:
     post:
@@ -1375,6 +1376,34 @@ components:
           type: string
           description: The API key for the external tool
 
+    ModelToolCall:
+      type: object
+      required:
+        - id
+        - type
+        - function
+      properties:
+        id:
+          type: string
+          description: The ID of the tool to call
+        type:
+          type: string
+          enum: [function, tool]
+          description: The type of the tool or function
+        function:
+          description: The function to call
+          type: object
+          required:
+            - name
+            - arguments
+          properties:
+            name:
+              type: string
+              description: The name of the function to call
+            arguments:
+              type: string
+              description: The arguments to pass to the function
+
     AgentMessage:
       type: object
       required:
@@ -1396,7 +1425,7 @@ components:
         tool_calls:
           type: array
           items:
-            $ref: "#/components/schemas/ToolCall"
+            $ref: "#/components/schemas/ModelToolCall"
           title: Tool Calls
         thinking:
           type: string
@@ -1485,32 +1514,101 @@ components:
           default: false
 
     ToolCall:
-      type: object
       required:
-        - id
-        - type
-        - function
+        - tool_call_id
+        - tool_name
+        - tool_args
       properties:
-        id:
+        role:
           type: string
-          description: The ID of the tool to call
-        type:
+          default: tool
+          enum: [tool]
+          description: The role of the tool
+        tool_call_id:
           type: string
-          enum: [function, tool]
-          description: The type of the tool or function
-        function:
-          description: The function to call
+          description: The unique identifier for the tool call
+        tool_name:
+          type: string
+          description: The name of the tool being called
+        tool_args:
           type: object
-          required:
-            - name
-            - arguments
+          description: The arguments passed to the tool
+        tool_call_error:
+          type: boolean
+          description: Whether the tool call resulted in an error
+
+    ToolCallResult:
+      required:
+        - tool_call_id
+        - tool_name
+        - tool_args
+      properties:
+        role:
+          type: string
+          enum: [tool]
+          description: The role of the tool
+        tool_call_id:
+          type: string
+          description: The unique identifier for the tool call
+        tool_name:
+          type: string
+          description: The name of the tool being called
+        tool_args:
+          type: object
+          description: The arguments passed to the tool
+        content:
+          type: string
+          description: The content or result returned by the tool
+        tool_call_error:
+          type: boolean
+          description: Indicates whether the tool call resulted in an error
+        metrics:
+          type: object
+          description: Performance metrics for the tool call
           properties:
-            name:
-              type: string
-              description: The name of the function to call
-            arguments:
-              type: string
-              description: The arguments to pass to the function
+            input_tokens:
+              type: integer
+              description: Number of input tokens used
+            output_tokens:
+              type: integer
+              description: Number of output tokens used
+            total_tokens:
+              type: integer
+              description: Total number of tokens used
+            prompt_tokens:
+              type: integer
+              description: Number of prompt tokens used
+            completion_tokens:
+              type: integer
+              description: Number of completion tokens used
+            prompt_tokens_details:
+              type: object
+              nullable: true
+              description: Detailed breakdown of prompt tokens
+            completion_tokens_details:
+              type: object
+              nullable: true
+              description: Detailed breakdown of completion tokens
+            additional_metrics:
+              type: object
+              nullable: true
+              description: Any additional metrics
+            time:
+              type: number
+              format: float
+              description: Time taken for the tool call in seconds
+            time_to_first_token:
+              type: number
+              format: float
+              nullable: true
+              description: Time to first token in seconds
+            timer:
+              type: object
+              nullable: true
+              description: Detailed timing information
+        created_at:
+          type: integer
+          description: Timestamp when the tool call result was created
 
     ChatCompletionRequest:
       type: object
@@ -1591,12 +1689,6 @@ components:
     AgentMessageMetrics:
       type: object
       title: MessageMetrics
-      required:
-        - input_tokens
-        - output_tokens
-        - total_tokens
-        - prompt_tokens
-        - completion_tokens
       properties:
         input_tokens:
           type: integer
@@ -1715,7 +1807,7 @@ components:
             - type: string
           title: File Name
 
-    RunStarted:
+    RunStartedEvent:
       type: object
       required:
         - run_id
@@ -1725,6 +1817,7 @@ components:
         - created_at
         - agent_id
         - session_id
+        - model
       properties:
         run_id:
           type: string
@@ -1738,7 +1831,7 @@ components:
         event:
           type: string
           description: The event type
-          enum: [RunStarted, RunCompleted, ToolCallStarted, ToolCallCompleted]
+          enum: [RunStarted]
         model:
           type: string
           description: The model used for the run
@@ -1752,12 +1845,99 @@ components:
           type: integer
           description: The timestamp when the response was created
 
-    RunCompleted:
+    ToolCallStartedEvent:
       type: object
       required:
         - run_id
         - content
         - content_type
+        - event
+        - created_at
+        - agent_id
+        - session_id
+      properties:
+        run_id:
+          type: string
+          description: The unique identifier for the run
+        content:
+          type: string
+          description: The content of the tool call
+        content_type:
+          type: string
+          description: The type of content
+        event:
+          type: string
+          description: The event type
+          enum: [ToolCallStarted]
+        model:
+          type: string
+          description: The model used for the run
+        agent_id:
+          type: string
+          description: The unique identifier for the agent
+        session_id:
+          type: string
+          description: The unique identifier for the session
+        created_at:
+          type: integer
+          description: The timestamp when the tool call was started
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+        messages:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/AgentMessage"
+          description: Messages related to the tool call
+
+    ToolCallCompletedEvent:
+      type: object
+      required:
+        - run_id
+        - content
+        - content_type
+        - event
+        - created_at
+        - agent_id
+        - session_id
+      properties:
+        run_id:
+          type: string
+          description: The unique identifier for the run
+        content:
+          type: string
+          description: The content of the tool call completion
+        content_type:
+          type: string
+          description: The type of content
+        event:
+          type: string
+          description: The event type
+          enum: [ToolCallCompleted]
+        model:
+          type: string
+          description: The model used for the run
+        agent_id:
+          type: string
+          description: The unique identifier for the agent
+        session_id:
+          type: string
+          description: The unique identifier for the session
+        created_at:
+          type: integer
+          description: The timestamp when the tool call was completed
+        tools:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCallResult"
+          description: Details of the completed tool call
+
+    RunCompletedEvent:
+      type: object
+      required:
+        - run_id
         - event
         - created_at
         - agent_id
@@ -1775,7 +1955,7 @@ components:
         event:
           type: string
           description: The event type
-          enum: [RunStarted, RunCompleted, ToolCallStarted, ToolCallCompleted]
+          enum: [RunCompleted]
         model:
           type: string
           description: The model used for the run
@@ -1799,7 +1979,7 @@ components:
           description: The final status of the run
           enum: [succeeded, failed, canceled]
 
-    RunResponse:
+    RunResponseEvent:
       type: object
       required:
         - run_id
@@ -1840,12 +2020,6 @@ components:
           items:
             $ref: "#/components/schemas/AgentMessage"
           description: The messages associated with the run
-        tools:
-          type: array
-          default: []
-          items:
-            $ref: "#/components/schemas/ToolExecution"
-          description: The tools executed in the run
 
     TeamRunRequest:
       type: object
@@ -1981,7 +2155,7 @@ components:
           items:
             oneOf:
               - $ref: "#/components/schemas/TeamRunResponse"
-              - $ref: "#/components/schemas/RunResponse"
+              - $ref: "#/components/schemas/RunResponseEvent"
           description: Responses from individual team members
           default: []
         run_id:
@@ -2324,79 +2498,13 @@ components:
             $ref: "#/components/schemas/AgentMessage"
           description: The messages received from the agent
 
-    ToolExecution:
-      type: object
-      required:
-        - tool_call_id
-        - tool_name
-        - tool_args
-      properties:
-        role:
-          type: string
-          enum: [tool]
-          description: The role of the message sender
-        content:
-          type: string
-          description: The content of the message
-        tool_call_id:
-          type: string
-          description: The ID of the tool call
-        tool_name:
-          type: string
-          description: The name of the tool
-        tool_args:
-          type: object
-          description: The arguments passed to the tool
-        tool_call_error:
-          type: boolean
-          default: false
-          description: Whether the tool execution resulted in an error
-
     AgentCompletionChunk:
       type: object
-      required:
-        - content_type
-        - event
-        - model
-        - run_id
-        - agent_id
-        - session_id
-        - created_at
-      properties:
-        content:
-          type: string
-          description: The content of the chunk
-        content_type:
-          type: string
-          description: The type of the content
-        event:
-          type: string
-          description: The event
-        model:
-          type: string
-          description: The model
-        run_id:
-          type: string
-          description: The run id
-        agent_id:
-          type: string
-          description: The agent id
-        session_id:
-          type: string
-          description: The session id
-        created_at:
-          type: integer
-          description: The created at timestamp
-        tools:
-          type: array
-          items:
-            type: object
-          description: Functions executed in the run (for RunStarted and RunCompleted events)
-        messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentMessage"
-          description: Messages in the run (for RunStarted and RunCompleted events)
+      anyOf:
+        - $ref: "#/components/schemas/RunStartedEvent"
+        - $ref: "#/components/schemas/ToolCallStartedEvent"
+        - $ref: "#/components/schemas/RunCompletedEvent"
+        - $ref: "#/components/schemas/ToolCallCompletedEvent"
 
     HTTPValidationError:
       properties:

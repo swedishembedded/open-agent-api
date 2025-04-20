@@ -7,11 +7,6 @@ generate:
 		-o python/client/ \
 		--package-name open_agent_api \
   		--additional-properties=packageVersion=0.2.0
-	openapi-generator-cli generate \
-		-i open-agent-api.yaml \
-		-g python-fastapi \
-		-o python/fastapi/ \
-		--package-name open_agent_api_server
 
 .PHONY: install
 install:
