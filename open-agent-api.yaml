@@ -6,7 +6,7 @@ info:
     autonomous agents with tool usage, multi-agent teams, knowledge base search,
     and optional billing integration.
     Clients can authenticate via magic link or OAuth2 to obtain a token, or use API keys.
-  version: "0.2.0"
+  version: "0.3.0"
 servers:
   - url: https://localhost:8007/v1
     description: Local API
