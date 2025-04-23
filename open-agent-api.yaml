@@ -1414,8 +1414,12 @@ components:
           enum: [system, user, assistant, tool]
           description: The role of the message sender
         content:
-          type: string
-          description: The content of the message
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+          description: The content of the message. Can be a string or an array of content blocks.
         name:
           type: string
           title: Name
@@ -1437,7 +1441,6 @@ components:
           type: object
           title: Provider Data
         citations:
-          type: object
           $ref: "#/components/schemas/Citations"
         reasoning_content:
           type: string
