@@ -1,0 +1,34 @@
+type: object
+required:
+  - run_id
+  - content
+  - content_type
+  - event
+  - created_at
+  - session_id
+properties:
+  run_id:
+    type: string
+    description: The unique identifier for the run
+  content:
+    type: string
+    description: The content of the response
+  content_type:
+    type: string
+    description: The type of content
+  event:
+    type: string
+    description: The event type
+    enum: [RunStarted]
+  model:
+    type: string
+    description: The model used for the run
+  agent_id:
+    type: string
+    description: The unique identifier for the agent
+  session_id:
+    type: string
+    description: The unique identifier for the session
+  created_at:
+    type: integer
+    description: The timestamp when the response was created

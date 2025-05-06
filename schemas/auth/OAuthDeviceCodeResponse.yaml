@@ -1,0 +1,25 @@
+type: object
+required:
+  - device_code
+  - user_code
+  - verification_uri
+  - verification_uri_complete
+  - expires_in
+  - interval
+properties:
+  device_code:
+    type: string
+    description: Code that identifies the device verification request
+  user_code:
+    type: string
+    description: User-friendly code to enter on the verification page
+  verification_uri:
+    type: string
+    format: uri
+    description: URI where the user should enter the user_code
+  expires_in:
+    type: integer
+    description: The lifetime in seconds of the device code
+  interval:
+    type: integer
+    description: The minimum time in seconds to wait between polling requests

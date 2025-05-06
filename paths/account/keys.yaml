@@ -1,0 +1,73 @@
+post:
+  tags:
+    - Account
+  summary: Create API Key
+  description: |
+    Create a new API key for the authenticated user. 
+    API keys can be used instead of the JWT token for authentication.
+    API usage is tracked per API key to enable detailed billing and usage analytics.
+  operationId: create_api_key_auth_keys_post
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApiKeyCreationRequest"
+  responses:
+    "201":
+      description: API key created successfully
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiKeyInfo"
+    "401":
+      description: Unauthorized - Invalid or missing authentication
+    "403":
+      description: Forbidden - User does not have permission to create API keys
+    "422":
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+get:
+  tags:
+    - Account
+  summary: List API Keys
+  description: |
+    List all active API keys for the authenticated user.
+    This endpoint returns only metadata about the keys, not the actual key values.
+  operationId: list_api_keys_auth_keys_get
+  security:
+    - ApiKey: []
+  responses:
+    "200":
+      description: List of API keys returned successfully
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/ApiKeyInfo"
+    "401":
+      description: Unauthorized - Invalid or missing authentication
+    "403":
+      description: Forbidden - User does not have permission to list API keys
+    "422":
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+components:
+  schemas:
+    ApiKeyCreationRequest:
+      $ref: "../../schemas/auth/ApiKeyCreationRequest.yaml"
+    ApiKeyInfo:
+      $ref: "../../schemas/auth/ApiKeyInfo.yaml"
+    ValidationError:
+      $ref: "../../schemas/ValidationError.yaml"

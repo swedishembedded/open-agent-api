@@ -1,0 +1,40 @@
+get:
+  tags:
+    - subscription
+  summary: List Subscription Plans
+  description: List all available subscription plans.
+  operationId: list_subscription_plans_subscription_plans_get
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: is_active
+      in: query
+      required: false
+      schema:
+        type: boolean
+        description: Filter by active status
+        default: true
+      description: Filter by active status
+  responses:
+    "200":
+      description: Successful Response
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/SubscriptionPlanInfo"
+            title: Response List Subscription Plans Subscription Plans Get
+    "422":
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+components:
+  schemas:
+    SubscriptionPlanInfo:
+      $ref: "../../schemas/account/SubscriptionPlanInfo.yaml"
+    ValidationError:
+      $ref: "../../schemas/ValidationError.yaml"

@@ -1,0 +1,22 @@
+type: object
+description: Video object for input/output
+allOf:
+  - $ref: "#/components/schemas/Media"
+  - type: object
+    properties:
+      url:
+        type: string
+        description: Remote location for the video file
+      eta:
+        type: string
+        nullable: true
+        description: Estimated time of arrival/completion
+      length:
+        type: string
+        nullable: true
+        description: Length of the video
+
+components:
+  schemas:
+    Media:
+      $ref: "./Media.yaml"

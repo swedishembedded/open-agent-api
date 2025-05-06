@@ -1,0 +1,16 @@
+get:
+  tags:
+    - MCP
+  summary: Mcp Info
+  description: Get information about the MCP server.
+  operationId: mcp_info_mcp__get
+  responses:
+    "200":
+      description: Successful Response
+      content:
+        application/json:
+          schema:
+            type: object
+            title: Response Mcp Info Mcp  Get
+  security:
+    - ApiKey: []

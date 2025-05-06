@@ -1,0 +1,35 @@
+get:
+  tags: [Authentication]
+  summary: Verify a magic link token
+  description: |
+    Verifies the token from the magic link email. On success, returns an API token (JWT)
+    that can be used for authenticated requests.
+    The token is typically provided as a query parameter in the magic link URL.
+  parameters:
+    - name: token
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The one-time token from the magic link.
+  responses:
+    "200":
+      description: Logged in successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              token:
+                type: string
+                description: Bearer JWT for authenticated requests.
+              token_type:
+                type: string
+                example: Bearer
+              expires_in:
+                type: integer
+                description: Expiration time in seconds.
+    "400":
+      description: Invalid or expired token.
+    "401":
+      description: Token verification failed.

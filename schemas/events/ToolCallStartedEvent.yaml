@@ -1,0 +1,50 @@
+type: object
+required:
+  - run_id
+  - content_type
+  - event
+  - created_at
+  - session_id
+properties:
+  run_id:
+    type: string
+    description: The unique identifier for the run
+  content:
+    type: string
+    description: The content of the tool call
+  content_type:
+    type: string
+    description: The type of content
+  event:
+    type: string
+    description: The event type
+    enum: [ToolCallStarted]
+  model:
+    type: string
+    description: The model used for the run
+  agent_id:
+    type: string
+    description: The unique identifier for the agent
+  session_id:
+    type: string
+    description: The unique identifier for the session
+  created_at:
+    type: integer
+    description: The timestamp when the tool call was started
+  tools:
+    type: array
+    items:
+      $ref: "#/components/schemas/ToolCall"
+  messages:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/AgentMessage"
+    description: Messages related to the tool call
+
+components:
+  schemas:
+    ToolCall:
+      $ref: "../ToolCall.yaml"
+    AgentMessage:
+      $ref: "../agent/AgentMessage.yaml"

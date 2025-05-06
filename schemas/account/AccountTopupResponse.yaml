@@ -1,0 +1,10 @@
+type: object
+properties:
+  checkout_url:
+    type: string
+    title: Checkout URL
+    description: |
+      Checkout URL that the user must use unless user has a default payment method setup.
+  amount:
+    type: integer
+    title: Amount in cents

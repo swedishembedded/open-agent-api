@@ -1,0 +1,71 @@
+required:
+  - tool_call_id
+  - tool_name
+  - tool_args
+properties:
+  role:
+    type: string
+    enum: [tool]
+    description: The role of the tool
+  tool_call_id:
+    type: string
+    description: The unique identifier for the tool call
+  tool_name:
+    type: string
+    description: The name of the tool being called
+  tool_args:
+    type: object
+    description: The arguments passed to the tool
+  content:
+    type: string
+    description: The content or result returned by the tool
+  tool_call_error:
+    type: boolean
+    description: Indicates whether the tool call resulted in an error
+  metrics:
+    type: object
+    description: Performance metrics for the tool call
+    properties:
+      input_tokens:
+        type: integer
+        description: Number of input tokens used
+      output_tokens:
+        type: integer
+        description: Number of output tokens used
+      total_tokens:
+        type: integer
+        description: Total number of tokens used
+      prompt_tokens:
+        type: integer
+        description: Number of prompt tokens used
+      completion_tokens:
+        type: integer
+        description: Number of completion tokens used
+      prompt_tokens_details:
+        type: object
+        nullable: true
+        description: Detailed breakdown of prompt tokens
+      completion_tokens_details:
+        type: object
+        nullable: true
+        description: Detailed breakdown of completion tokens
+      additional_metrics:
+        type: object
+        nullable: true
+        description: Any additional metrics
+      time:
+        type: number
+        format: float
+        description: Time taken for the tool call in seconds
+      time_to_first_token:
+        type: number
+        format: float
+        nullable: true
+        description: Time to first token in seconds
+      timer:
+        type: object
+        nullable: true
+        description: Detailed timing information
+  created_at:
+    type: integer
+    description: Timestamp when the tool call result was created

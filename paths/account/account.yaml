@@ -1,0 +1,18 @@
+get:
+  tags:
+    - Account
+  summary: Get Account
+  description: Get details of the current user's account.
+  operationId: get_user_account
+  responses:
+    "200":
+      description: Successful Response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AccountInfo"
+
+components:
+  schemas:
+    AccountInfo:
+      $ref: "../../schemas/account/AccountInfo.yaml"

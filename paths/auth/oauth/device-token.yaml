@@ -1,0 +1,32 @@
+post:
+  tags: [Authentication]
+  summary: OAuth2 device code token exchange
+  description: |
+    Exchange a device code for an access token during device flow authentication.
+    Used by console applications that initiated a device flow authentication.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OAuthDeviceCodeRequest"
+  responses:
+    "200":
+      description: Device code exchange successful - returns a JWT for API usage
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SuccessResponse"
+    "400":
+      description: Invalid device code
+    "401":
+      description: Authorization pending or expired
+    "429":
+      description: Polling too frequently (respect the interval returned in the device flow initiation)
+
+components:
+  schemas:
+    SuccessResponse:
+      $ref: "../../../schemas/SuccessResponse.yaml"
+    OAuthDeviceCodeRequest:
+      $ref: "../../../schemas/auth/OAuthDeviceCodeRequest.yaml"

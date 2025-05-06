@@ -6,7 +6,7 @@ generate:
 		-g python \
 		-o python/client/ \
 		--package-name open_agent_api \
-  		--additional-properties=packageVersion=0.3.0
+  		--additional-properties=packageVersion=0.5.0
 
 .PHONY: install
 install:
@@ -30,3 +30,22 @@ build:
 .PHONY: publish
 publish:
 	python -m twine upload python/client/dist/*
+
+# Documentation targets
+.PHONY: docs-redoc
+docs-redoc:
+	mkdir -p docs/redoc
+	npx @redocly/cli bundle open-agent-api.yaml -o docs/redoc/openapi-bundled.yaml
+	npx @redocly/cli build-docs docs/redoc/openapi-bundled.yaml -o docs/redoc/index.html
+
+.PHONY: docs-swagger
+docs-swagger:
+	./generate_swagger_ui.sh
+
+.PHONY: docs
+docs: docs-redoc docs-swagger
+	@echo "Documentation generated in docs/ directory"
+
+.PHONY: serve-docs
+serve-docs:
+	npx http-server docs -p 8080

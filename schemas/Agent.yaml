@@ -1,0 +1,35 @@
+type: object
+description: Definition of an agent.
+required:
+  - id
+properties:
+  id:
+    type: string
+    description: Unique identifier for the agent.
+  name:
+    type: string
+    description: Human-readable name for the agent.
+  model:
+    type: string
+    description: Base model used by the agent.
+  description:
+    type: string
+    description: Description or persona of the agent.
+  instructions:
+    type: string
+    description: Instructions for the agent.
+  tools:
+    type: array
+    items:
+      $ref: "#/components/schemas/Toolkit"
+    description: |
+      Toolkits available to the agent.
+      A toolkit is a collection of tools that can be used by the agent.
+  created_at:
+    type: string
+    format: date-time
+
+components:
+  schemas:
+    Toolkit:
+      $ref: "./Toolkit.yaml"

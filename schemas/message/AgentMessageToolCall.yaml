@@ -1,0 +1,26 @@
+type: object
+required:
+  - id
+  - type
+  - function
+properties:
+  id:
+    type: string
+    description: The ID of the tool to call
+  type:
+    type: string
+    enum: [function, tool]
+    description: The type of the tool or function
+  function:
+    description: The function to call
+    type: object
+    required:
+      - name
+      - arguments
+    properties:
+      name:
+        type: string
+        description: The name of the function to call
+      arguments:
+        type: string
+        description: The arguments to pass to the function

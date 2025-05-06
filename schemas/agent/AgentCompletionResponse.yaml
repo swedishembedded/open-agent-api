@@ -1,0 +1,14 @@
+type: object
+required:
+  - messages
+properties:
+  messages:
+    type: array
+    items:
+      $ref: "#/components/schemas/AgentMessage"
+    description: The messages received from the agent
+
+components:
+  schemas:
+    AgentMessage:
+      $ref: "./AgentMessage.yaml"

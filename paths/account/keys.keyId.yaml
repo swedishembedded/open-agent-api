@@ -1,0 +1,85 @@
+get:
+  tags:
+    - Account
+  summary: Get API Key
+  description: |
+    Get details about a specific API key by its ID.
+    This endpoint returns metadata about the key, not the actual key value.
+  operationId: get_api_key_auth_keys__key_id__get
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: key_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The UUID of the API key
+  responses:
+    "200":
+      description: API key details returned successfully
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiKeyInfo"
+    "401":
+      description: Unauthorized - Invalid or missing authentication
+    "403":
+      description: Forbidden - User does not have permission to access this API key
+    "404":
+      description: API key not found
+    "422":
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+delete:
+  tags:
+    - Account
+  summary: Revoke API Key
+  description: |
+    Revoke (delete) an API key by its ID.
+    Once revoked, the API key can no longer be used for authentication.
+    This action cannot be undone.
+  operationId: revoke_api_key_auth_keys__key_id__delete
+  security:
+    - ApiKey: []
+  parameters:
+    - name: key_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The UUID of the API key to revoke
+  responses:
+    "200":
+      description: API key revoked successfully
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SuccessResponse"
+    "401":
+      description: Unauthorized - Invalid or missing authentication
+    "403":
+      description: Forbidden - User does not have permission to revoke this API key
+    "404":
+      description: API key not found
+    "422":
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+components:
+  schemas:
+    ApiKeyInfo:
+      $ref: "../../schemas/auth/ApiKeyInfo.yaml"
+    ValidationError:
+      $ref: "../../schemas/ValidationError.yaml"
+    SuccessResponse:
+      $ref: "../../schemas/SuccessResponse.yaml"

@@ -6,7 +6,7 @@ info:
     autonomous agents with tool usage, multi-agent teams, knowledge base search,
     and optional billing integration.
     Clients can authenticate via magic link or OAuth2 to obtain a token, or use API keys.
-  version: "0.3.0"
+  version: "0.5.0"
 servers:
   - url: https://localhost:8007/v1
     description: Local API
@@ -14,11 +14,11 @@ servers:
     description: Swedish Embedded API
   - url: https://api.agentsven.com/v1
     description: Agentsven API
-  - url: https://api.openagent.example.com/v1
-    description: Example API server
 tags:
   - name: Authentication
     description: Endpoints for user authentication (magic link, OAuth)
+  - name: Account
+    description: Endpoints for managing user accounts
   - name: Agents
     description: Manage and interact with individual agents
   - name: Teams
@@ -33,240 +33,6 @@ tags:
     description: Model Context Protocol
 
 paths:
-  ################
-  # Agents Paths #
-  ################
-  /agents:
-    post:
-      tags: [Agents]
-      summary: Create a new agent
-      description: |
-        Registers a new agent with given configuration. The agent will be associated with the authenticated user's account.
-
-        Agents have a base model and optional user tools that they can use.
-
-        The agent can also use tools that are provided on the server side. These tools are either predefined by the server such as the web search tool or defined by the user but executed on the server - such as MCP based tools.
-      security:
-        - ApiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Agent"
-      responses:
-        "201":
-          description: Agent created successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Agent"
-        "400":
-          description: Invalid input.
-        "401":
-          description: Unauthorized.
-    get:
-      tags: [Agents]
-      summary: List my agents
-      description: |
-        Retrieve all agents owned by the authenticated user.
-      security:
-        - ApiKey: []
-      responses:
-        "200":
-          description: A list of agent definitions.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  agents:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Agent"
-        "401":
-          description: Unauthorized.
-  /agents/{agentId}:
-    get:
-      tags: [Agents]
-      summary: Get agent details
-      description: "Fetch configuration and details of a specific agent by ID."
-      security:
-        - ApiKey: []
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Unique ID of the agent.
-      responses:
-        "200":
-          description: Agent details returned.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Agent"
-        "404":
-          description: Agent not found or not owned by user.
-        "401":
-          description: Unauthorized.
-    put:
-      tags: [Agents]
-      summary: Update an agent
-      description: Update the configuration of an existing agent.
-      security:
-        - ApiKey: []
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema:
-            type: string
-            description: The ID of the agent to update.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Agent"
-      responses:
-        "200":
-          description: Agent updated successfully
-        "401":
-          description: Unauthorized.
-        "404":
-          description: Agent not found.
-    delete:
-      tags: [Agents]
-      summary: Delete an agent
-      description: Delete an agent
-      security:
-        - ApiKey: []
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema:
-            type: string
-            description: The ID of the agent to delete.
-      responses:
-        "200":
-          description: Agent deleted successfully
-        "401":
-          description: Unauthorized.
-        "404":
-          description: Agent not found.
-  /agents/{agentId}/run:
-    post:
-      tags: [Agents]
-      summary: Interact with an agent (chat interface)
-      description: |
-        Send a chat conversation to the specified agent and get a response. Supports streaming responses via SSE.
-        The agent can utilize tools if available; tool requests will be surfaced as events in streaming mode.
-        If not streaming, the agent's final answer is returned directly.
-      security:
-        - ApiKey: []
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The ID of the agent to interact with.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [messages]
-              properties:
-                messages:
-                  type: array
-                  description: The conversation history or prompt for the agent.
-                  items:
-                    $ref: "#/components/schemas/AgentMessage"
-                tools:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/AgentToolkitFunction"
-                  description: Optional list of available tools for this interaction (overrides or supplements agent's default tools).
-      responses:
-        "200":
-          description: |
-            Successful response from agent. If not streaming, this is the final answer.
-            If streaming, this is the initial response (possibly empty or just an acknowledgment).
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    $ref: "#/components/schemas/AgentMessage"
-                  usage:
-                    $ref: "#/components/schemas/Usage"
-                  finish_reason:
-                    type: string
-                    description: Reason the agent stopped (e.g. "stop", "tool_request").
-            text/event-stream:
-              schema:
-                type: string
-                description: |
-                  Server-Sent Events stream. The stream will contain events:
-                  - RunStartedEvent (agent started processing)
-                  - ToolCallStartedEvent (tool started processing)
-                  - RunResponseEvent (partial output or tool request)
-                  - RunCompletedEvent (final output)
-                  - ToolCallCompletedEvent (tool completed)
-                  Each event's data is a JSON object with at least a "type" field and additional fields depending on type.
-                  For example, a ToolRequest event may have { "type": "ToolRequest", "tool": "...", "input": "..." }.
-        "400":
-          description: Bad input (e.g., missing messages).
-        "401":
-          description: Unauthorized.
-        "404":
-          description: Agent not found.
-  /agent/{agent_id}:
-    post:
-      summary: Agent Completion Create
-      description: Generate a new completion for the agent.
-      security:
-        - ApiKey: []
-      parameters:
-        - name: agent_id
-          in: path
-          required: true
-          description: The unique identifier for the agent
-          schema:
-            type: string
-        - name: accept
-          in: header
-          required: false
-          schema:
-            type: string
-            default: ""
-            title: Accept
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AgentCompletionRequest"
-      responses:
-        "200":
-          description: The agent interaction was successful
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AgentCompletionResponse"
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
-
   /:
     get:
       summary: Root
@@ -301,636 +67,72 @@ paths:
   # Authentication Paths #
   ########################
   /auth/link:
-    post:
-      tags: [Authentication]
-      summary: Request a magic login link via email
-      description: |
-        Initiates a magic link authentication by sending an email with a login link.
-        The email contains a token that can be used to verify and log in.
-
-        **Note:** This endpoint is typically unauthenticated (no token required)
-        *because it's for login.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AuthMagicLinkRequest"
-      responses:
-        "200":
-          description: Magic link email sent (or response is always 204 No Content on success).
-        "400":
-          description: Bad request (invalid email)
-        "429":
-          description: Too many requests (rate limit on sending emails)
+    $ref: "./paths/auth/link.yaml"
 
   /auth/link/verify/{token}:
-    get:
-      tags: [Authentication]
-      summary: Verify a magic link token
-      description: |
-        Verifies the token from the magic link email. On success, returns an API token (JWT)
-        that can be used for authenticated requests.
-        The token is typically provided as a query parameter in the magic link URL.
-      parameters:
-        - name: token
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The one-time token from the magic link.
-      responses:
-        "200":
-          description: Logged in successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-                    description: Bearer JWT for authenticated requests.
-                  token_type:
-                    type: string
-                    example: Bearer
-                  expires_in:
-                    type: integer
-                    description: Expiration time in seconds.
-        "400":
-          description: Invalid or expired token.
-        "401":
-          description: Token verification failed.
+    $ref: "./paths/auth/link/verify.yaml"
 
   /auth/link/status/{token}:
-    get:
-      tags:
-        - Authentication
-      summary: Check Verification Status
-      description: Check if a verification token has been used.
-        Used by the client to poll for verification status.
-      operationId: check_verification_status_auth_verification_status__token__get
-      parameters:
-        - name: token
-          in: path
-          required: true
-          schema:
-            type: string
-            title: Token
-      responses:
-        "200":
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                title: Response Check Verification Status Auth Verification Status  Token  Get
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+    $ref: "./paths/auth/link/status.yaml"
 
   /auth/oauth/{provider}:
-    get:
-      tags: [Authentication]
-      summary: Initiate OAuth2 login flow
-      description: |
-        Generates and returns the authorization URL for a specific OAuth provider.
-        The client should redirect the user to this URL to begin the OAuth process.
-
-        For console applications, this endpoint can generate a URL that can be opened
-        in a browser, and the application can use a local redirect or device flow.
-      parameters:
-        - name: provider
-          in: path
-          required: true
-          schema:
-            type: string
-            example: google
-          description: OAuth provider name (e.g., google, github).
-        - name: redirect_uri
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uri
-          description: |
-            Optional redirect URI after successful OAuth. If not provided,
-            a default redirect URI configured for the application will be used.
-        - name: device_flow
-          in: query
-          required: false
-          schema:
-            type: boolean
-            default: false
-          description: |
-            If true, initiates a device flow suitable for console applications.
-            Returns a device code and verification URI instead of a redirect URL.
-      responses:
-        "200":
-          description: OAuth flow initiated successfully
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/OAuthAuthorizationResponse"
-                  - $ref: "#/components/schemas/OAuthDeviceCodeResponse"
-        "400":
-          description: Bad request (invalid provider or parameters)
+    $ref: "./paths/auth/oauth/provider.yaml"
 
   /auth/oauth/{provider}/callback:
-    get:
-      tags: [Authentication]
-      summary: OAuth2 callback endpoint
-      description: |
-        Endpoint for OAuth provider to redirect to with an authorization code.
-        The server will exchange the code for user info and log the user in.
-      parameters:
-        - name: provider
-          in: path
-          required: true
-          schema:
-            type: string
-            example: google
-          description: OAuth provider name (e.g., google, github).
-        - name: code
-          in: query
-          required: true
-          schema:
-            type: string
-          description: OAuth authorization code provided by the OAuth provider.
-        - name: state
-          in: query
-          schema:
-            type: string
-          description: OAuth state parameter for CSRF protection.
-      responses:
-        "200":
-          description: OAuth login successful – returns a JWT for API usage.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OAuthCallbackResponse"
-        "400":
-          description: Missing or invalid code.
-        "401":
-          description: OAuth exchange failed (bad code or provider error).
+    $ref: "./paths/auth/oauth/provider.callback.yaml"
 
-  /auth/oauth/device/token:
-    post:
-      tags: [Authentication]
-      summary: OAuth2 device code token exchange
-      description: |
-        Exchange a device code for an access token during device flow authentication.
-        Used by console applications that initiated a device flow authentication.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/OAuthDeviceTokenRequest"
-      responses:
-        "200":
-          description: Device code exchange successful - returns a JWT for API usage
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OAuthCallbackResponse"
-        "400":
-          description: Invalid device code
-        "401":
-          description: Authorization pending or expired
-        "429":
-          description: Polling too frequently (respect the interval returned in the device flow initiation)
+  /auth/oauth/device-token:
+    $ref: "./paths/auth/oauth/device-token.yaml"
 
-  /auth/keys:
-    post:
-      tags:
-        - Authentication
-      summary: Create API Key
-      description: |
-        Create a new API key for the authenticated user. 
-        API keys can be used instead of the JWT token for authentication.
-        API usage is tracked per API key to enable detailed billing and usage analytics.
-      operationId: create_api_key_auth_keys_post
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ApiKeyCreate"
-      responses:
-        "201":
-          description: API key created successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiKeyResponse"
-        "401":
-          description: Unauthorized - Invalid or missing authentication
-        "403":
-          description: Forbidden - User does not have permission to create API keys
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+  ################
+  # Agents Paths #
+  ################
+  /agents:
+    $ref: "./paths/agents.yaml"
+  /agents/{agentId}:
+    $ref: "./paths/agents.agentId.yaml"
+  /agents/{agentId}/run:
+    $ref: "./paths/agents.agentId.run.yaml"
 
-    get:
-      tags:
-        - Authentication
-      summary: List API Keys
-      description: |
-        List all active API keys for the authenticated user.
-        This endpoint returns only metadata about the keys, not the actual key values.
-      operationId: list_api_keys_auth_keys_get
-      security:
-        - ApiKey: []
-      responses:
-        "200":
-          description: List of API keys returned successfully
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ApiKeyInfo"
-        "401":
-          description: Unauthorized - Invalid or missing authentication
-        "403":
-          description: Forbidden - User does not have permission to list API keys
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
-
-  /auth/keys/{key_id}:
-    get:
-      tags:
-        - Authentication
-      summary: Get API Key
-      description: |
-        Get details about a specific API key by its ID.
-        This endpoint returns metadata about the key, not the actual key value.
-      operationId: get_api_key_auth_keys__key_id__get
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: key_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The UUID of the API key
-      responses:
-        "200":
-          description: API key details returned successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiKeyInfo"
-        "401":
-          description: Unauthorized - Invalid or missing authentication
-        "403":
-          description: Forbidden - User does not have permission to access this API key
-        "404":
-          description: API key not found
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
-
-    delete:
-      tags:
-        - Authentication
-      summary: Revoke API Key
-      description: |
-        Revoke (delete) an API key by its ID.
-        Once revoked, the API key can no longer be used for authentication.
-        This action cannot be undone.
-      operationId: revoke_api_key_auth_keys__key_id__delete
-      security:
-        - ApiKey: []
-      parameters:
-        - name: key_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The UUID of the API key to revoke
-      responses:
-        "200":
-          description: API key revoked successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiKeyRevocationResponse"
-        "401":
-          description: Unauthorized - Invalid or missing authentication
-        "403":
-          description: Forbidden - User does not have permission to revoke this API key
-        "404":
-          description: API key not found
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
-
-  /auth/keys/{key_id}/usage:
-    get:
-      tags:
-        - Authentication
-      summary: Get API Key Usage
-      description: |
-        Get detailed usage statistics for a specific API key.
-        This includes aggregated request counts, token usage, and billing information.
-        Optionally filter by date range or group by different time periods.
-      operationId: get_api_key_usage_auth_keys__key_id__usage_get
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: key_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: The UUID of the API key
-        - name: start_date
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-          description: Start date for filtering usage data (YYYY-MM-DD)
-        - name: end_date
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-          description: End date for filtering usage data (YYYY-MM-DD)
-        - name: group_by
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [day, week, month]
-            default: day
-          description: Group usage data by time period
-      responses:
-        "200":
-          description: API key usage data returned successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiKeyUsageResponse"
-        "401":
-          description: Unauthorized - Invalid or missing authentication
-        "403":
-          description: Forbidden - User does not have permission to access this API key
-        "404":
-          description: API key not found
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+  #################
+  # Account Paths #
+  #################
+  /account:
+    $ref: "./paths/account/account.yaml"
+  /account/balance:
+    $ref: "./paths/account/balance.yaml"
+  /account/topup:
+    $ref: "./paths/account/topup.yaml"
+  /account/plans:
+    $ref: "./paths/account/plans.yaml"
+  /account/plans/{plan_id}:
+    $ref: "./paths/account/plans/planId.yaml"
+  /account/keys:
+    $ref: "./paths/account/keys.yaml"
+  /account/keys/{key_id}:
+    $ref: "./paths/account/keys.keyId.yaml"
+  /account/keys/{key_id}/usage:
+    $ref: "./paths/account/keys.keyId.usage.yaml"
 
   /mcp/:
-    get:
-      tags:
-        - MCP
-      summary: Mcp Info
-      description: Get information about the MCP server.
-      operationId: mcp_info_mcp__get
-      responses:
-        "200":
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                title: Response Mcp Info Mcp  Get
-      security:
-        - ApiKey: []
+    $ref: "./paths/mcp/mcp.yaml"
 
   /mcp/sse:
-    get:
-      tags:
-        - MCP
-      summary: Sse Endpoint
-      description: SSE endpoint for MCP clients.
-      operationId: sse_endpoint_mcp_sse_get
-      responses:
-        "200":
-          description: Successful Response
-          content:
-            text/event-stream:
-              schema:
-                type: object
-                properties:
-                  event:
-                    type: string
-                    description: The type of event
-                    enum:
-                      - status
-                      - RunResponseEvent
-                      - RunStartedEvent
-                      - RunCompletedEvent
-                      - ToolCallStartedEvent
-                      - ToolCallCompletedEvent
-                  data:
-                    oneOf:
-                      - $ref: "#/components/schemas/RunResponseEvent"
-                      - $ref: "#/components/schemas/RunStartedEvent"
-                      - $ref: "#/components/schemas/RunCompletedEvent"
-                      - $ref: "#/components/schemas/ToolCallStartedEvent"
-                      - $ref: "#/components/schemas/ToolCallCompletedEvent"
+    $ref: "./paths/mcp/sse.yaml"
 
   /mcp/messages:
-    post:
-      tags:
-        - MCP
-      summary: Messages Endpoint
-      description: Messages endpoint for MCP clients.
-      operationId: messages_endpoint_mcp_messages_post
-      responses:
-        "200":
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
+    $ref: "./paths/mcp/messages.yaml"
 
   ##############
   # Teams Paths#
   ##############
   /teams:
-    post:
-      tags: [Teams]
-      summary: Create a new team of agents
-      description: |
-        Dynamically create a team of agents. Provide a list of existing agent IDs and their roles.
-        Optionally specify which agent should act as the team leader (or one will be chosen).
-      security:
-        - ApiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, agents, tools]
-              properties:
-                name:
-                  type: string
-                  description: Team name.
-                members:
-                  type: array
-                  description: Agents to include in the team.
-                  items:
-                    type: object
-                    required: [agent_id, role]
-                    properties:
-                      agent_id:
-                        type: string
-                      role:
-                        type: string
-                        description: Role of this agent in the team (e.g. "Researcher", "Coder").
-                tools:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/AgentToolkit"
-                  description: Toolkits available to the manager of the team
-      responses:
-        "201":
-          description: Team created.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Team"
-        "400":
-          description: Bad input (e.g., agent IDs invalid).
-        "401":
-          description: Unauthorized.
-    get:
-      tags: [Teams]
-      summary: List my teams
-      security:
-        - ApiKey: []
-      responses:
-        "200":
-          description: List of teams.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  teams:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Team"
-        "401":
-          description: Unauthorized.
+    $ref: "./paths/teams.yaml"
   /teams/{teamId}:
-    get:
-      tags: [Teams]
-      summary: Get team details
-      description: |
-        Retrieve info about a specific team, including members and roles.
-        Also includes toolkits available to the manager of the team.
-      security:
-        - ApiKey: []
-      parameters:
-        - name: teamId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Team ID.
-      responses:
-        "200":
-          description: Team details.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Team"
-        "404":
-          description: Team not found or not accessible.
-        "401":
-          description: Unauthorized.
+    $ref: "./paths/teams/teamId.yaml"
   /teams/{teamId}/run:
-    post:
-      tags: [Teams]
-      summary: Run a team of agents
-      description: |
-        Send a message to a team. The team leader agent will coordinate members to respond.
-        Supports streaming SSE responses similar to single-agent chat.
-      security:
-        - ApiKey: []
-      parameters:
-        - name: teamId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID of the team to interact with.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                messages:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/AgentMessage"
-                  description: Conversation history or prompt.
-                tools:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/AgentToolkitFunction"
-                  description: Optional tools available to the team (if any global tools to provide).
-      responses:
-        "200":
-          description: Team response (non-streaming) or acknowledgement (streaming).
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    $ref: "#/components/schemas/AgentMessage"
-                  usage:
-                    $ref: "#/components/schemas/Usage"
-                  finish_reason:
-                    type: string
-            text/event-stream:
-              schema:
-                type: string
-                description: |
-                  SSE stream of events from the team interaction.
-                  Events can include tool requests from any member agent, partial outputs, and final completion.
-        "400":
-          description: Bad input.
-        "401":
-          description: Unauthorized.
-        "404":
-          description: Team not found.
+    $ref: "./paths/teams/teamId.run.yaml"
+
   #####################
   # Tools functions   #
   #####################
@@ -1000,45 +202,7 @@ paths:
           description: Tool not found.
         "401":
           description: Unauthorized.
-  #####################
-  # Knowledge Search  #
-  #####################
-  /knowledge/search:
-    post:
-      tags: [Knowledge]
-      summary: Semantic search in knowledge base
-      description: |
-        Search the authenticated user's knowledge base (or global knowledge) for relevant information.
-        Returns documents or snippets matching the query, using embedding-based similarity.
-      security:
-        - ApiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [query]
-              properties:
-                query:
-                  type: string
-                  description: Search query (natural language).
-      responses:
-        "200":
-          description: Search results retrieved.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  results:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/KnowledgeResult"
-        "400":
-          description: Bad request (e.g., missing query).
-        "401":
-          description: Unauthorized.
+
   #####################
   # Stripe Webhook    #
   #####################
@@ -1117,50 +281,15 @@ paths:
       security:
         - ApiKey: []
 
-  /subscription/plans:
+  /account/plans/{plan_id}/checkout:
     get:
       tags:
         - subscription
-      summary: List Subscription Plans
-      description: List all available subscription plans.
-      operationId: list_subscription_plans_subscription_plans_get
       security:
         - BearerAuth: []
-      parameters:
-        - name: is_active
-          in: query
-          required: false
-          schema:
-            type: boolean
-            description: Filter by active status
-            default: true
-          description: Filter by active status
-      responses:
-        "200":
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SubscriptionPlanResponse"
-                title: Response List Subscription Plans Subscription Plans Get
-        "422":
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HTTPValidationError"
-
-  /subscription/plans/{plan_id}:
-    get:
-      tags:
-        - subscription
-      summary: Get Plan
-      description: Get details of a specific subscription plan.
-      operationId: get_plan_subscription_plans__plan_id__get
-      security:
-        - BearerAuth: []
+      summary: Get Checkout URL
+      description: Get the checkout URL for a specific subscription plan.
+      operationId: get_checkout_url_subscription_plans__plan_id__checkout_get
       parameters:
         - name: plan_id
           in: path
@@ -1168,33 +297,39 @@ paths:
           schema:
             type: string
             format: uuid
-            title: Plan Id
       responses:
         "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SubscriptionPlanResponse"
+                $ref: "#/components/schemas/CheckoutSessionInfo"
         "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: "#/components/schemas/ValidationError"
 
-  /subscription/subscribe:
+  /account/plans/{plan_id}/purchase:
     post:
       tags:
         - subscription
       summary: Create Subscription
       description: Create a new subscription for the current user.
       operationId: create_subscription_subscription_subscribe_post
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserSubscriptionCreate"
+              $ref: "#/components/schemas/AccountSubscriptionPurchase"
         required: true
       responses:
         "201":
@@ -1202,21 +337,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserSubscriptionResponse"
+                $ref: "#/components/schemas/AccountSubscriptionInfo"
         "422":
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: "#/components/schemas/ValidationError"
       security:
         - BearerAuth: []
 
-  /subscription/current:
+  /account/subscriptions:
     get:
       tags:
         - subscription
-      summary: Get Current Subscription
+      summary: Get Current Subscriptions
       description: Get the current user's active subscription.
       operationId: get_current_subscription_subscription_current_get
       responses:
@@ -1225,17 +360,53 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserSubscriptionResponse"
+                type: array
+                items:
+                  $ref: "#/components/schemas/AccountSubscriptionInfo"
       security:
         - BearerAuth: []
 
-  /subscription/cancel:
-    post:
+  /account/subscriptions/{subscription_id}:
+    get:
+      tags:
+        - subscription
+      summary: Get Subscription
+      description: Get details of a specific subscription.
+      operationId: get_subscription_subscription_subscription_id_get
+      parameters:
+        - name: subscription_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountSubscriptionInfo"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+      security:
+        - BearerAuth: []
+
+    delete:
       tags:
         - subscription
       summary: Cancel Subscription
       description: Cancel the current user's subscription at the end of the billing period.
       operationId: cancel_subscription_subscription_cancel_post
+      parameters:
+        - name: subscription_id
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: Successful Response
@@ -1246,7 +417,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /subscription/webhook:
+  /account/subscription/webhook:
     post:
       tags:
         - subscription
@@ -1278,40 +449,19 @@ components:
       description: >
         Use a Bearer token for authorization. This can be an API key (for direct API access) or a JWT obtained via login.
   schemas:
-    AgentEnvironment:
-      type: object
-      required:
-        - working_directory
-        - platform
-      properties:
-        working_directory:
-          type: string
-          description: The working directory for the agent
-        platform:
-          type: string
-          description: The platform the agent is running on
+    AccountInfo:
+      $ref: "./schemas/account/AccountInfo.yaml"
+    AccountBalanceInfo:
+      $ref: "./schemas/account/AccountBalanceInfo.yaml"
+    AccountSubscriptionInfo:
+      $ref: "./schemas/account/AccountSubscriptionInfo.yaml"
+    AccountSubscriptionPurchase:
+      $ref: "./schemas/account/AccountSubscriptionPurchase.yaml"
 
-    AgentToolkitFunction:
-      type: object
-      description: A function that an agent can use (function/plugin).
-      required:
-        - name
-        - description
-        - parameters
-      properties:
-        name:
-          type: string
-          description: The name of the function
-        description:
-          type: string
-          description: The description of the function
-        parameters:
-          type: object
-          description: The parameters of the function
-        strict:
-          type: boolean
-          description: Whether the function is strict
-          default: false
+    AgentEnvironment:
+      $ref: "./schemas/agent/AgentEnvironment.yaml"
+    ToolkitFunction:
+      $ref: "./schemas/ToolkitFunction.yaml"
 
     AgentToolkitSummary:
       type: object
@@ -1335,24 +485,8 @@ components:
             type: string
           description: The functions of the tool
 
-    AgentToolkit:
-      type: object
-      required:
-        - name
-        - instructions
-      properties:
-        name:
-          type: string
-          description: The name of the tool
-        instructions:
-          type: string
-          description: Optional instructions for the toolkit
-        functions:
-          type: array
-          default: []
-          items:
-            $ref: "#/components/schemas/AgentToolkitFunction"
-          description: The functions of the tool
+    Toolkit:
+      $ref: "./schemas/Toolkit.yaml"
 
     ExternalTool:
       type: object
@@ -1376,137 +510,25 @@ components:
           type: string
           description: The API key for the external tool
 
-    ModelToolCall:
-      type: object
-      required:
-        - id
-        - type
-        - function
-      properties:
-        id:
-          type: string
-          description: The ID of the tool to call
-        type:
-          type: string
-          enum: [function, tool]
-          description: The type of the tool or function
-        function:
-          description: The function to call
-          type: object
-          required:
-            - name
-            - arguments
-          properties:
-            name:
-              type: string
-              description: The name of the function to call
-            arguments:
-              type: string
-              description: The arguments to pass to the function
+    AgentMessageToolCall:
+      $ref: "./schemas/message/AgentMessageToolCall.yaml"
 
     AgentMessage:
-      type: object
-      required:
-        - role
-      properties:
-        role:
-          type: string
-          enum: [system, user, assistant, tool]
-          description: The role of the message sender
-        content:
-          oneOf:
-            - type: string
-            - type: array
-              items:
-                type: object
-          description: The content of the message. Can be a string or an array of content blocks.
-        name:
-          type: string
-          title: Name
-        tool_call_id:
-          type: string
-          title: Tool Call Id
-        tool_calls:
-          type: array
-          items:
-            $ref: "#/components/schemas/ModelToolCall"
-          title: Tool Calls
-        thinking:
-          type: string
-          title: Thinking
-        redacted_thinking:
-          type: string
-          title: Redacted Thinking
-        provider_data:
-          type: object
-          title: Provider Data
-        citations:
-          $ref: "#/components/schemas/Citations"
-        reasoning_content:
-          type: string
-          title: Reasoning Content
-        tool_name:
-          type: string
-          title: Tool Name
-        tool_args:
-          type: object
-          title: Tool Args
-        tool_call_error:
-          type: boolean
-          title: Tool Call Error
-        stop_after_tool_call:
-          type: boolean
-          title: Stop After Tool Call
-          default: false
-        add_to_agent_memory:
-          type: boolean
-          title: Add To Agent Memory
-          default: true
-        from_history:
-          type: boolean
-          title: From History
-          default: false
-        metrics:
-          $ref: "#/components/schemas/AgentMessageMetrics"
-        references:
-          $ref: "#/components/schemas/AgentMessageReferences"
-        created_at:
-          type: integer
-          default: 0
-          title: Created At
+      $ref: "./schemas/agent/AgentMessage.yaml"
 
     AuthMagicLinkRequest:
-      type: object
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          format: email
-          description: Email address to send the magic login link to.
-        base_url:
-          type: string
-          description: The base URL of the application
+      $ref: "./schemas/auth/AuthMagicLinkRequest.yaml"
 
-    AuthResponse:
+    AuthLoginResponse:
       type: object
       required:
-        - message
         - jwt_token
-        - token_type
         - expires_at
         - verified
       properties:
-        message:
-          type: string
-          description: Server response message
         jwt_token:
           type: string
           description: JWT token for authentication
-        token_type:
-          type: string
-          description: Type of token (bearer)
-          example: bearer
         expires_at:
           type: string
           format: date-time
@@ -1514,104 +536,12 @@ components:
         verified:
           type: boolean
           description: Whether the email has been verified
-          default: false
 
     ToolCall:
-      required:
-        - tool_call_id
-        - tool_name
-        - tool_args
-      properties:
-        role:
-          type: string
-          default: tool
-          enum: [tool]
-          description: The role of the tool
-        tool_call_id:
-          type: string
-          description: The unique identifier for the tool call
-        tool_name:
-          type: string
-          description: The name of the tool being called
-        tool_args:
-          type: object
-          description: The arguments passed to the tool
-        tool_call_error:
-          type: boolean
-          description: Whether the tool call resulted in an error
+      $ref: "./schemas/ToolCall.yaml"
 
     ToolCallResult:
-      required:
-        - tool_call_id
-        - tool_name
-        - tool_args
-      properties:
-        role:
-          type: string
-          enum: [tool]
-          description: The role of the tool
-        tool_call_id:
-          type: string
-          description: The unique identifier for the tool call
-        tool_name:
-          type: string
-          description: The name of the tool being called
-        tool_args:
-          type: object
-          description: The arguments passed to the tool
-        content:
-          type: string
-          description: The content or result returned by the tool
-        tool_call_error:
-          type: boolean
-          description: Indicates whether the tool call resulted in an error
-        metrics:
-          type: object
-          description: Performance metrics for the tool call
-          properties:
-            input_tokens:
-              type: integer
-              description: Number of input tokens used
-            output_tokens:
-              type: integer
-              description: Number of output tokens used
-            total_tokens:
-              type: integer
-              description: Total number of tokens used
-            prompt_tokens:
-              type: integer
-              description: Number of prompt tokens used
-            completion_tokens:
-              type: integer
-              description: Number of completion tokens used
-            prompt_tokens_details:
-              type: object
-              nullable: true
-              description: Detailed breakdown of prompt tokens
-            completion_tokens_details:
-              type: object
-              nullable: true
-              description: Detailed breakdown of completion tokens
-            additional_metrics:
-              type: object
-              nullable: true
-              description: Any additional metrics
-            time:
-              type: number
-              format: float
-              description: Time taken for the tool call in seconds
-            time_to_first_token:
-              type: number
-              format: float
-              nullable: true
-              description: Time to first token in seconds
-            timer:
-              type: object
-              nullable: true
-              description: Detailed timing information
-        created_at:
-          type: integer
-          description: Timestamp when the tool call result was created
+      $ref: "./schemas/ToolCallResult.yaml"
 
     ChatCompletionRequest:
       type: object
@@ -1688,903 +618,75 @@ components:
                 type: string
                 description: e.g. stop, length, etc.
         usage:
-          $ref: "#/components/schemas/Usage"
+          $ref: "#/components/schemas/ChatCompletionUsage"
+
     AgentMessageMetrics:
-      type: object
-      title: MessageMetrics
-      properties:
-        input_tokens:
-          type: integer
-          title: Input Tokens
-          default: 0
-        output_tokens:
-          type: integer
-          title: Output Tokens
-          default: 0
-        total_tokens:
-          type: integer
-          title: Total Tokens
-          default: 0
-        prompt_tokens:
-          type: integer
-          title: Prompt Tokens
-          default: 0
-        completion_tokens:
-          type: integer
-          title: Completion Tokens
-          default: 0
-        prompt_tokens_details:
-          anyOf:
-            - type: object
-          title: Prompt Tokens Details
-        completion_tokens_details:
-          anyOf:
-            - type: object
-          title: Completion Tokens Details
-        additional_metrics:
-          anyOf:
-            - type: object
-          title: Additional Metrics
-        time:
-          anyOf:
-            - type: number
-          title: Time
-        time_to_first_token:
-          anyOf:
-            - type: number
-          title: Time To First Token
+      $ref: "./schemas/message/AgentMessageMetrics.yaml"
 
     AgentMessageReferences:
-      type: object
-      required:
-        - query
-        - references
-      title: MessageReferences
-      description: References added to user message
-      properties:
-        query:
-          type: string
-          title: Query
-        references:
-          anyOf:
-            - type: array
-              items:
-                type: object
-          title: References
-        time:
-          anyOf:
-            - type: number
-          title: Time
+      $ref: "./schemas/message/AgentMessageReferences.yaml"
 
-    Citations:
-      type: object
-      title: Citations
-      description: Citations for the message
-      properties:
-        raw:
-          anyOf:
-            - {}
-          title: Raw
-        urls:
-          anyOf:
-            - type: array
-              items:
-                $ref: "#/components/schemas/UrlCitation"
-          title: Urls
-        documents:
-          anyOf:
-            - type: array
-              items:
-                $ref: "#/components/schemas/DocumentCitation"
-          title: Documents
+    AgentMessageCitations:
+      $ref: "./schemas/message/AgentMessageCitations.yaml"
 
     UrlCitation:
-      type: object
-      title: UrlCitation
-      description: URL of the citation
-      properties:
-        url:
-          anyOf:
-            - type: string
-          title: Url
-        title:
-          anyOf:
-            - type: string
-          title: Title
+      $ref: "./schemas/message/citations/UrlCitation.yaml"
 
     DocumentCitation:
-      type: object
-      title: DocumentCitation
-      description: Document of the citation
-      properties:
-        document_title:
-          anyOf:
-            - type: string
-          title: Document Title
-        cited_text:
-          anyOf:
-            - type: string
-          title: Cited Text
-        file_name:
-          anyOf:
-            - type: string
-          title: File Name
+      $ref: "./schemas/message/citations/DocumentCitation.yaml"
+
+    TeamMessageCitations:
+      $ref: "./schemas/team/message/Citations.yaml"
 
     RunStartedEvent:
-      type: object
-      required:
-        - run_id
-        - content
-        - content_type
-        - event
-        - created_at
-        - agent_id
-        - session_id
-        - model
-      properties:
-        run_id:
-          type: string
-          description: The unique identifier for the run
-        content:
-          type: string
-          description: The content of the response
-        content_type:
-          type: string
-          description: The type of content
-        event:
-          type: string
-          description: The event type
-          enum: [RunStarted]
-        model:
-          type: string
-          description: The model used for the run
-        agent_id:
-          type: string
-          description: The unique identifier for the agent
-        session_id:
-          type: string
-          description: The unique identifier for the session
-        created_at:
-          type: integer
-          description: The timestamp when the response was created
+      $ref: "./schemas/events/RunStartedEvent.yaml"
 
     ToolCallStartedEvent:
-      type: object
-      required:
-        - run_id
-        - content
-        - content_type
-        - event
-        - created_at
-        - agent_id
-        - session_id
-      properties:
-        run_id:
-          type: string
-          description: The unique identifier for the run
-        content:
-          type: string
-          description: The content of the tool call
-        content_type:
-          type: string
-          description: The type of content
-        event:
-          type: string
-          description: The event type
-          enum: [ToolCallStarted]
-        model:
-          type: string
-          description: The model used for the run
-        agent_id:
-          type: string
-          description: The unique identifier for the agent
-        session_id:
-          type: string
-          description: The unique identifier for the session
-        created_at:
-          type: integer
-          description: The timestamp when the tool call was started
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCall"
-        messages:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/AgentMessage"
-          description: Messages related to the tool call
+      $ref: "./schemas/events/ToolCallStartedEvent.yaml"
 
     ToolCallCompletedEvent:
-      type: object
-      required:
-        - run_id
-        - content
-        - content_type
-        - event
-        - created_at
-        - agent_id
-        - session_id
-      properties:
-        run_id:
-          type: string
-          description: The unique identifier for the run
-        content:
-          type: string
-          description: The content of the tool call completion
-        content_type:
-          type: string
-          description: The type of content
-        event:
-          type: string
-          description: The event type
-          enum: [ToolCallCompleted]
-        model:
-          type: string
-          description: The model used for the run
-        agent_id:
-          type: string
-          description: The unique identifier for the agent
-        session_id:
-          type: string
-          description: The unique identifier for the session
-        created_at:
-          type: integer
-          description: The timestamp when the tool call was completed
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/ToolCallResult"
-          description: Details of the completed tool call
+      $ref: "./schemas/events/ToolCallCompletedEvent.yaml"
 
     RunCompletedEvent:
-      type: object
-      required:
-        - run_id
-        - event
-        - created_at
-        - agent_id
-        - session_id
-      properties:
-        run_id:
-          type: string
-          description: The unique identifier for the run
-        content:
-          type: string
-          description: The content of the response
-        content_type:
-          type: string
-          description: The type of content
-        event:
-          type: string
-          description: The event type
-          enum: [RunCompleted]
-        model:
-          type: string
-          description: The model used for the run
-        agent_id:
-          type: string
-          description: The unique identifier for the agent
-        session_id:
-          type: string
-          description: The unique identifier for the session
-        created_at:
-          type: integer
-          description: The timestamp when the response was created
-        runtime:
-          type: number
-          description: The total runtime of the run in seconds
-        metrics:
-          type: object
-          description: Metrics collected during the run
-        status:
-          type: string
-          description: The final status of the run
-          enum: [succeeded, failed, canceled]
+      $ref: "./schemas/events/RunCompletedEvent.yaml"
 
     RunResponseEvent:
-      type: object
-      required:
-        - run_id
-        - content
-        - content_type
-        - event
-        - created_at
-        - agent_id
-        - session_id
-      properties:
-        run_id:
-          type: string
-          description: The unique identifier for the run
-        content:
-          type: string
-          description: The content of the response
-        content_type:
-          type: string
-          description: The type of content
-        event:
-          type: string
-          description: The event type
-        model:
-          type: string
-          description: The model used for the run
-        agent_id:
-          type: string
-          description: The unique identifier for the agent
-        session_id:
-          type: string
-          description: The unique identifier for the session
-        created_at:
-          type: integer
-          description: The timestamp when the response was created
-        messages:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/AgentMessage"
-          description: The messages associated with the run
-
+      $ref: "./schemas/events/RunResponseEvent.yaml"
     TeamRunRequest:
-      type: object
-      description: Request for Team.run() functions
-      properties:
-        messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentMessage"
-          description: |
-            The messages to send to the team, can be a string, list, dict, or Message object
-        stream:
-          type: boolean
-          default: false
-          description: Whether to stream the response
-        stream_intermediate_steps:
-          type: boolean
-          default: false
-          description: Whether to stream intermediate steps
-        retries:
-          type: integer
-          nullable: true
-          description: Number of retries if the run fails
-        audio:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/Audio"
-          description: Audio files to include with the request
-        images:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/Image"
-          description: Images to include with the request
-        videos:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/Video"
-          description: Videos to include with the request
-        files:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/File"
-          description: Files to include with the request
+      $ref: "./schemas/team/TeamRunRequest.yaml"
 
     File:
-      type: object
-      description: File object for input/output
-      properties:
-        url:
-          type: string
-          nullable: true
-          description: Remote location for file
-        filepath:
-          type: string
-          nullable: true
-          description: Absolute local location for file
-        content:
-          type: object
-          nullable: true
-          description: Actual file bytes content
-        mime_type:
-          type: string
-          nullable: true
-          description: MIME type of the file
+      $ref: "./schemas/File.yaml"
 
     Image:
-      type: object
-      description: Image object for input/output
-      properties:
-        url:
-          type: string
-          nullable: true
-          description: Remote location for image
-        filepath:
-          type: string
-          nullable: true
-          description: Absolute local location for image
-        content:
-          type: object
-          nullable: true
-          description: Actual image bytes content
-        format:
-          type: string
-          nullable: true
-          description: Image format (e.g. png, jpeg, webp, gif)
-        detail:
-          type: string
-          nullable: true
-          description: Image detail level (low, medium, high or auto) per OpenAI spec
-        id:
-          type: string
-          nullable: true
-          description: Unique identifier for the image
+      $ref: "./schemas/Image.yaml"
 
     TeamRunResponse:
-      type: object
-      description: Response returned by Team.run() functions
-      properties:
-        event:
-          type: string
-          description: The event type
-        content:
-          type: string
-          description: The content of the response
-        content_type:
-          type: string
-          description: The type of content
-          default: "str"
-        thinking:
-          type: string
-          nullable: true
-          description: Thinking process of the team
-        messages:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/AgentMessage"
-          description: The messages associated with the run
-        metrics:
-          type: object
-          nullable: true
-          description: Metrics related to the team run
-        model:
-          type: string
-          nullable: true
-          description: The model used for the run
-        member_responses:
-          type: array
-          items:
-            oneOf:
-              - $ref: "#/components/schemas/TeamRunResponse"
-              - $ref: "#/components/schemas/RunResponseEvent"
-          description: Responses from individual team members
-          default: []
-        run_id:
-          type: string
-          nullable: true
-          description: The unique identifier for the run
-        team_id:
-          type: string
-          nullable: true
-          description: The unique identifier for the team
-        session_id:
-          type: string
-          nullable: true
-          description: The unique identifier for the session
-        tools:
-          type: array
-          nullable: true
-          items:
-            type: object
-          description: Tools used in the team run
-        formatted_tool_calls:
-          type: array
-          nullable: true
-          items:
-            type: string
-          description: Formatted representation of tool calls
-        images:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/ImageArtifact"
-          description: Images generated from member runs
-        videos:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/VideoArtifact"
-          description: Videos generated from member runs
-        audio:
-          type: array
-          nullable: true
-          items:
-            $ref: "#/components/schemas/AudioArtifact"
-          description: Audio generated from member runs
-        response_audio:
-          $ref: "#/components/schemas/AudioResponse"
-          nullable: true
-          description: Model audio response
-        citations:
-          $ref: "#/components/schemas/Citations"
-          nullable: true
-          description: Citations for the response
-        extra_data:
-          $ref: "#/components/schemas/RunResponseExtraData"
-          nullable: true
-          description: Additional data for the response
-        created_at:
-          type: integer
-          description: The timestamp when the response was created
+      $ref: "./schemas/team/TeamRunResponse.yaml"
 
     Media:
-      type: object
-      description: Base media object
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the media
-        original_prompt:
-          type: string
-          nullable: true
-          description: Original prompt used to generate the media
-        revised_prompt:
-          type: string
-          nullable: true
-          description: Revised prompt used to generate the media
-
-    VideoArtifact:
-      type: object
-      description: Video artifact generated during a run
-      allOf:
-        - $ref: "#/components/schemas/Media"
-        - type: object
-          properties:
-            url:
-              type: string
-              description: Remote location for the video file
-            eta:
-              type: string
-              nullable: true
-              description: Estimated time of arrival/completion
-            length:
-              type: string
-              nullable: true
-              description: Length of the video
-
-    ImageArtifact:
-      type: object
-      description: Image artifact generated during a run
-      allOf:
-        - $ref: "#/components/schemas/Media"
-        - type: object
-          properties:
-            url:
-              type: string
-              nullable: true
-              description: Remote location for the image file
-            content:
-              type: string
-              format: byte
-              nullable: true
-              description: Actual image bytes content
-            mime_type:
-              type: string
-              nullable: true
-              description: MIME type of the image
-            alt_text:
-              type: string
-              nullable: true
-              description: Alternative text description of the image
-
-    AudioArtifact:
-      type: object
-      description: Audio artifact generated during a run
-      allOf:
-        - $ref: "#/components/schemas/Media"
-        - type: object
-          properties:
-            url:
-              type: string
-              nullable: true
-              description: Remote location for the audio file
-            base64_audio:
-              type: string
-              nullable: true
-              description: Base64-encoded audio data
-            length:
-              type: string
-              nullable: true
-              description: Length of the audio
-            mime_type:
-              type: string
-              nullable: true
-              description: MIME type of the audio
+      $ref: "./schemas/Media.yaml"
 
     Video:
-      type: object
-      description: Video object for input/output
-      properties:
-        filepath:
-          type: string
-          nullable: true
-          description: Absolute local location for video
-        content:
-          type: string
-          nullable: true
-          description: Base64-encoded compressed video content
-        format:
-          type: string
-          nullable: true
-          description: Video format (e.g. mp4, mov, avi)
-
-    Audio:
-      type: object
-      description: Audio object for input/output
-      properties:
-        content:
-          type: string
-          nullable: true
-          description: Base64-encoded compressed audio content
-        filepath:
-          type: string
-          nullable: true
-          description: Absolute local location for audio
-        url:
-          type: string
-          nullable: true
-          description: Remote location for audio
-        format:
-          type: string
-          nullable: true
-          description: Audio format
-
-    AudioResponse:
-      type: object
-      description: Audio response from a model
-      properties:
-        id:
-          type: string
-          nullable: true
-          description: Unique identifier for the audio response
-        content:
-          type: string
-          nullable: true
-          description: Base64 encoded audio content
-        expires_at:
-          type: integer
-          nullable: true
-          description: Timestamp when the audio response expires
-        transcript:
-          type: string
-          nullable: true
-          description: Text transcript of the audio
-        mime_type:
-          type: string
-          nullable: true
-          description: MIME type of the audio
-        sample_rate:
-          type: integer
-          nullable: true
-          default: 24000
-          description: Sample rate of the audio
-        channels:
-          type: integer
-          nullable: true
-          default: 1
-          description: Number of audio channels
-
-    RunResponseExtraData:
-      type: object
-      description: Additional data for a run response
-      properties:
-        extra:
-          type: object
-          description: Extra data fields
+      $ref: "./schemas/Video.yaml"
 
     Agent:
-      type: object
-      description: Definition of an agent.
-      required:
-        - name
-        - model
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the agent.
-        name:
-          type: string
-          description: Human-readable name for the agent.
-        model:
-          type: string
-          description: Base model used by the agent.
-        description:
-          type: string
-          description: Description or persona of the agent.
-        instructions:
-          type: string
-          description: Instructions for the agent.
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentToolkit"
-          description: |
-            Toolkits available to the agent.
-            A toolkit is a collection of tools that can be used by the agent.
-        created_at:
-          type: string
-          format: date-time
+      $ref: "./schemas/Agent.yaml"
 
     Team:
-      type: object
-      description: A team of agents.
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        members:
-          type: array
-          description: Agents in the team.
-          items:
-            type: object
-            properties:
-              agent_id:
-                type: string
-              role:
-                type: string
-              is_leader:
-                type: boolean
-        tools:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentToolkit"
-          description: Toolkits available to the manager of the team
-        created_at:
-          type: string
-          format: date-time
+      $ref: "./schemas/Team.yaml"
 
-    KnowledgeResult:
-      type: object
-      description: A search result from the knowledge base.
-      properties:
-        id:
-          type: string
-          description: Identifier of the document or knowledge item.
-        text:
-          type: string
-          description: Relevant snippet of the document.
-        score:
-          type: number
-          format: float
-          description: Similarity score (higher means more relevant).
     AgentCompletionRequest:
-      type: object
-      required:
-        - environment
-        - messages
-      properties:
-        id:
-          type: string
-          default: simple
-          description: The id of the agent to use
-        model:
-          type: string
-          default: claude-3-7-sonnet-latest
-          description: The Claude model to use
-        environment:
-          $ref: "#/components/schemas/AgentEnvironment"
-          description: The environment
-        tools:
-          type: array
-          default: []
-          items:
-            $ref: "#/components/schemas/AgentToolkit"
-          description: The tools to use
-        messages:
-          type: array
-          default: []
-          items:
-            $ref: "#/components/schemas/AgentMessage"
-          description: The messages to send to the agent
+      $ref: "./schemas/agent/AgentCompletionRequest.yaml"
 
     AgentCompletionResponse:
-      type: object
-      required:
-        - messages
-      properties:
-        messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentMessage"
-          description: The messages received from the agent
+      $ref: "./schemas/agent/AgentCompletionResponse.yaml"
 
     AgentCompletionChunk:
-      type: object
-      anyOf:
-        - $ref: "#/components/schemas/RunStartedEvent"
-        - $ref: "#/components/schemas/ToolCallStartedEvent"
-        - $ref: "#/components/schemas/RunCompletedEvent"
-        - $ref: "#/components/schemas/ToolCallCompletedEvent"
-
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: "#/components/schemas/ValidationError"
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
+      $ref: "./schemas/agent/AgentCompletionChunk.yaml"
 
     ValidationError:
-      properties:
-        loc:
-          items:
-            anyOf:
-              - type: string
-              - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-      type: object
-      required:
-        - loc
-        - msg
-        - type
-      title: ValidationError
-
-    SubscriptionPlanResponse:
-      properties:
-        name:
-          type: string
-          title: Name
-        description:
-          anyOf:
-            - type: string
-          title: Description
-        stripe_price_id:
-          type: string
-          title: Stripe Price Id
-        stripe_product_id:
-          type: string
-          title: Stripe Product Id
-        features:
-          type: object
-          title: Features
-          default: {}
-        is_active:
-          type: boolean
-          title: Is Active
-          default: true
-        id:
-          type: string
-          format: uuid
-          title: Id
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      type: object
-      required:
-        - name
-        - stripe_price_id
-        - stripe_product_id
-        - id
-        - created_at
-        - updated_at
-      title: SubscriptionPlanResponse
+      $ref: "./schemas/ValidationError.yaml"
 
     UserSubscriptionCreate:
       properties:
@@ -2704,269 +806,34 @@ components:
       description: Response model for server setup.
 
     OAuthAuthorizationResponse:
-      type: object
-      required:
-        - authorization_url
-        - state
-        - jwt_token
-        - token_type
-        - expires_at
-        - verified
-      properties:
-        authorization_url:
-          type: string
-          format: uri
-          description: The URL to redirect the user to for OAuth login
-        state:
-          type: string
-          description: CSRF protection state parameter to verify in the callback
-        jwt_token:
-          type: string
-          description: JWT token for authentication (unverified at this point)
-        token_type:
-          type: string
-          example: bearer
-          description: Type of the authentication token
-        expires_at:
-          type: string
-          format: date-time
-          description: Expiration timestamp of the token
-        verified:
-          type: boolean
-          description: Whether the authentication has been verified
+      $ref: "./schemas/auth/OAuthAuthorizationResponse.yaml"
 
     OAuthDeviceCodeResponse:
-      type: object
-      required:
-        - device_code
-        - user_code
-        - verification_uri
-        - verification_uri_complete
-        - expires_in
-        - interval
-      properties:
-        device_code:
-          type: string
-          description: Code that identifies the device verification request
-        user_code:
-          type: string
-          description: User-friendly code to enter on the verification page
-        verification_uri:
-          type: string
-          format: uri
-          description: URI where the user should enter the user_code
-        expires_in:
-          type: integer
-          description: The lifetime in seconds of the device code
-        interval:
-          type: integer
-          description: The minimum time in seconds to wait between polling requests
+      $ref: "./schemas/auth/OAuthDeviceCodeResponse.yaml"
+
+    OAuthDeviceCodeRequest:
+      $ref: "./schemas/auth/OAuthDeviceCodeRequest.yaml"
 
     OAuthCallbackResponse:
-      type: object
-      required:
-        - token_id
-        - token_type
-        - expires_at
-      properties:
-        token_id:
-          type: string
-          description: The ID of the token.
-        token_type:
-          type: string
-          example: Bearer
-        expires_at:
-          type: string
-          format: date-time
-          description: Expiration time of the token.
+      $ref: "./schemas/auth/OAuthCallbackResponse.yaml"
 
-    OAuthDeviceTokenRequest:
-      type: object
-      required:
-        - device_code
-      properties:
-        device_code:
-          type: string
-          description: The device code returned from the initial OAuth device flow request
-
-    ApiKeyCreate:
-      type: object
-      required:
-        - name
-      properties:
-        name:
-          type: string
-          title: Name
-          description: A descriptive name for the API key to help identify its purpose
-        expires_in:
-          type: integer
-          title: Expires In
-          description: Number of days until the API key expires (0 for no expiration)
-          default: 0
-        scopes:
-          type: array
-          items:
-            type: string
-            enum: [read, write, admin]
-          title: Scopes
-          description: Permission scopes for the API key
-          default: ["read", "write"]
-        metadata:
-          type: object
-          additionalProperties: true
-          title: Metadata
-          description: Optional custom metadata for the API key (e.g., application name, environment)
-          default: {}
-
-    ApiKeyResponse:
-      type: object
-      required:
-        - id
-        - api_key
-        - name
-        - created_at
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: ID
-          description: Unique identifier for the API key
-        api_key:
-          type: string
-          title: API Key
-          description: The actual API key value (only returned once at creation)
-        name:
-          type: string
-          title: Name
-          description: The descriptive name of the API key
-        prefix:
-          type: string
-          title: Prefix
-          description: First few characters of the API key for identification
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-          description: Timestamp when the API key was created
-        expires_at:
-          type: string
-          format: date-time
-          title: Expires At
-          description: Timestamp when the API key will expire (null if never expires)
-        scopes:
-          type: array
-          items:
-            type: string
-          title: Scopes
-          description: Permission scopes assigned to the API key
-        metadata:
-          type: object
-          additionalProperties: true
-          title: Metadata
-          description: Custom metadata for the API key
-        user_id:
-          type: string
-          format: uuid
-          title: User ID
-          description: ID of the user who owns this API key
+    ApiKeyCreationRequest:
+      $ref: "./schemas/auth/ApiKeyCreationRequest.yaml"
 
     ApiKeyInfo:
+      $ref: "./schemas/auth/ApiKeyInfo.yaml"
+
+    AccountUpdateRequest:
       type: object
-      required:
-        - id
-        - name
-        - created_at
-        - is_active
-        - last_used_at
       properties:
-        id:
-          type: string
-          format: uuid
-          title: ID
-          description: Unique identifier for the API key
         name:
           type: string
           title: Name
-          description: The descriptive name of the API key
-        prefix:
+          description: The name of the user account
+        username:
           type: string
-          title: Prefix
-          description: First few characters of the API key for identification
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-          description: Timestamp when the API key was created
-        expires_at:
-          type: string
-          format: date-time
-          title: Expires At
-          description: Timestamp when the API key will expire (null if never expires)
-        is_active:
-          type: boolean
-          title: Is Active
-          description: Whether the API key is currently active
-          default: true
-        last_used_at:
-          type: string
-          format: date-time
-          title: Last Used At
-          description: Timestamp when the API key was last used (null if never used)
-        scopes:
-          type: array
-          items:
-            type: string
-          title: Scopes
-          description: Permission scopes assigned to the API key
-        metadata:
-          type: object
-          additionalProperties: true
-          title: Metadata
-          description: Custom metadata for the API key
-        usage:
-          type: object
-          properties:
-            total_requests:
-              type: integer
-              title: Total Requests
-              description: Total number of API requests made with this key
-            total_tokens:
-              type: integer
-              title: Total Tokens
-              description: Total number of tokens consumed by this key
-            monthly_requests:
-              type: integer
-              title: Monthly Requests
-              description: Number of API requests made this month
-            monthly_tokens:
-              type: integer
-              title: Monthly Tokens
-              description: Number of tokens consumed this month
-          title: Usage
-          description: Usage statistics for the API key
-
-    ApiKeyRevocationResponse:
-      type: object
-      required:
-        - message
-        - id
-        - revoked_at
-      properties:
-        message:
-          type: string
-          title: Message
-          description: Success message confirming API key revocation
-          example: "API key successfully revoked"
-        id:
-          type: string
-          format: uuid
-          title: ID
-          description: ID of the revoked API key
-        revoked_at:
-          type: string
-          format: date-time
-          title: Revoked At
-          description: Timestamp when the API key was revoked
+          title: Username
+          description: The username of the user account
 
     ApiKeyUsageResponse:
       type: object
@@ -3045,13 +912,45 @@ components:
                 description: Cost for this period
       title: ApiKeyUsageResponse
 
-    Usage:
+    CheckoutSessionRequest:
       type: object
-      description: Token usage report.
+      required:
+        - plan_id
       properties:
-        prompt_tokens:
-          type: integer
-        completion_tokens:
-          type: integer
-        total_tokens:
-          type: integer
+        success_url:
+          type: string
+          description: The URL to redirect to after the checkout session is completed
+        cancel_url:
+          type: string
+          description: The URL to redirect to if the checkout session is canceled
+
+    CheckoutSessionInfo:
+      type: object
+      required:
+        - checkout_url
+        - session_id
+      properties:
+        checkout_url:
+          type: string
+          description: The checkout URL for the subscription plan
+        session_id:
+          type: string
+          description: The ID of the checkout session
+
+    ChatCompletionUsage:
+      $ref: "./schemas/message/AgentMessageMetrics.yaml"
+
+    TeamUsageInfo:
+      $ref: "./schemas/message/AgentMessageMetrics.yaml"
+
+    TeamMessage:
+      $ref: "./schemas/agent/AgentMessage.yaml"
+
+    AccountUsageInfo:
+      $ref: "./schemas/account/AccountUsageInfo.yaml"
+
+    AccountUsageInfoItem:
+      $ref: "./schemas/account/AccountUsageInfoItem.yaml"
+
+    AccountPortalSessionCreatedResponse:
+      $ref: "./schemas/account/AccountPortalSessionCreatedResponse.yaml"

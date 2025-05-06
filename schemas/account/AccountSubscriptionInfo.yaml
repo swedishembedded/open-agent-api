@@ -1,0 +1,76 @@
+type: object
+required:
+  - id
+  - user_id
+  - status
+properties:
+  id:
+    type: string
+    format: uuid
+    title: ID
+    description: Unique identifier for the subscription
+  user_id:
+    type: string
+    format: uuid
+    title: User ID
+    description: ID of the user this subscription belongs to
+  plan_id:
+    type: string
+    format: uuid
+    title: Plan ID
+    description: ID of the subscription plan
+  status:
+    type: string
+    title: Status
+    description: Current status of the subscription
+    enum:
+      - trialing
+      - active
+      - past_due
+      - canceled
+      - unpaid
+  stripe_customer_id:
+    type: string
+    title: Stripe Customer ID
+    description: ID of the customer in Stripe
+  stripe_subscription_id:
+    type: string
+    title: Stripe Subscription ID
+    description: ID of the subscription in Stripe
+  current_period_start:
+    type: string
+    format: date-time
+    title: Current Period Start
+    description: Start date of the current billing period
+  current_period_end:
+    type: string
+    format: date-time
+    title: Current Period End
+    description: End date of the current billing period
+  balance:
+    type: integer
+    title: Balance
+    description: The balance of the subscription
+  usage_quota:
+    type: object
+    title: Usage Quota
+    description: Token limits and other usage quotas
+  payment_method_id:
+    type: string
+    title: Payment Method ID
+    description: ID of the payment method
+  cancel_at_period_end:
+    type: boolean
+    title: Cancel At Period End
+    description: Whether the subscription will be canceled at the end of the current period
+    default: false
+  created_at:
+    type: string
+    format: date-time
+    title: Created At
+    description: Timestamp when the subscription was created
+  updated_at:
+    type: string
+    format: date-time
+    title: Updated At
+    description: Timestamp when the subscription was last updated

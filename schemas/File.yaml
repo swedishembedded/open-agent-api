@@ -1,0 +1,19 @@
+type: object
+description: File object for input/output
+properties:
+  url:
+    type: string
+    nullable: true
+    description: Remote location for file
+  filepath:
+    type: string
+    nullable: true
+    description: Absolute local location for file
+  content:
+    type: object
+    nullable: true
+    description: Actual file bytes content
+  mime_type:
+    type: string
+    nullable: true
+    description: MIME type of the file

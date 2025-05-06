@@ -1,0 +1,32 @@
+type: object
+description: A team of agents.
+properties:
+  id:
+    type: string
+  name:
+    type: string
+  members:
+    type: array
+    description: Agents in the team.
+    items:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        role:
+          type: string
+        is_leader:
+          type: boolean
+  tools:
+    type: array
+    items:
+      $ref: "#/components/schemas/Toolkit"
+    description: Toolkits available to the manager of the team
+  created_at:
+    type: string
+    format: date-time
+
+components:
+  schemas:
+    Toolkit:
+      $ref: "./Toolkit.yaml"

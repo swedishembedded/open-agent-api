@@ -1,0 +1,27 @@
+type: object
+title: Citations
+description: Citations for the message
+properties:
+  raw:
+    anyOf:
+      - {}
+    title: Raw
+  urls:
+    anyOf:
+      - type: array
+        items:
+          $ref: "#/components/schemas/UrlCitation"
+    title: Urls
+  documents:
+    anyOf:
+      - type: array
+        items:
+          $ref: "#/components/schemas/DocumentCitation"
+    title: Documents
+
+components:
+  schemas:
+    DocumentCitation:
+      $ref: "./citations/DocumentCitation.yaml"
+    UrlCitation:
+      $ref: "./citations/UrlCitation.yaml"

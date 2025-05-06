@@ -1,0 +1,11 @@
+type: object
+title: AccountUsageInfo
+properties:
+  transactions:
+    type: array
+    items:
+      $ref: "#/components/schemas/AccountUsageInfoItem"
+components:
+  schemas:
+    AccountUsageInfoItem:
+      $ref: "./AccountUsageInfoItem.yaml"

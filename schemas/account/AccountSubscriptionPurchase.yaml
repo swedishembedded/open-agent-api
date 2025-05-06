@@ -1,0 +1,15 @@
+type: object
+required:
+  - plan_id
+  - payment_method_id
+properties:
+  plan_id:
+    type: string
+    format: uuid
+    title: Plan ID
+    description: ID of the subscription plan
+  payment_method_id:
+    type: string
+    format: uuid
+    title: Payment Method ID
+    description: ID of the payment method

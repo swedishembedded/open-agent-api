@@ -1,0 +1,80 @@
+type: object
+required:
+  - role
+properties:
+  role:
+    type: string
+    enum: [system, user, assistant, tool]
+    description: The role of the message sender
+  content:
+    oneOf:
+      - type: string
+      - type: array
+        items:
+          type: object
+    description: The content of the message. Can be a string or an array of content blocks.
+  name:
+    type: string
+    title: Name
+  tool_call_id:
+    type: string
+    title: Tool Call Id
+  tool_calls:
+    type: array
+    items:
+      $ref: "#/components/schemas/AgentMessageToolCall"
+    title: Tool Calls
+  thinking:
+    type: string
+    title: Thinking
+  redacted_thinking:
+    type: string
+    title: Redacted Thinking
+  provider_data:
+    type: object
+    title: Provider Data
+  citations:
+    $ref: "#/components/schemas/AgentMessageCitations"
+  reasoning_content:
+    type: string
+    title: Reasoning Content
+  tool_name:
+    type: string
+    title: Tool Name
+  tool_args:
+    type: object
+    title: Tool Args
+  tool_call_error:
+    type: boolean
+    title: Tool Call Error
+  stop_after_tool_call:
+    type: boolean
+    title: Stop After Tool Call
+    default: false
+  add_to_agent_memory:
+    type: boolean
+    title: Add To Agent Memory
+    default: true
+  from_history:
+    type: boolean
+    title: From History
+    default: false
+  metrics:
+    $ref: "#/components/schemas/AgentMessageMetrics"
+  references:
+    $ref: "#/components/schemas/AgentMessageReferences"
+  created_at:
+    type: integer
+    default: 0
+    title: Created At
+
+components:
+  schemas:
+    AgentMessageToolCall:
+      $ref: "../message/AgentMessageToolCall.yaml"
+    AgentMessageCitations:
+      $ref: "../message/AgentMessageCitations.yaml"
+    AgentMessageReferences:
+      $ref: "../message/AgentMessageReferences.yaml"
+    AgentMessageMetrics:
+      $ref: "../message/AgentMessageMetrics.yaml"

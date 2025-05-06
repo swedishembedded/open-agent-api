@@ -1,0 +1,41 @@
+get:
+  tags: [Authentication]
+  summary: OAuth2 callback endpoint
+  description: |
+    Endpoint for OAuth provider to redirect to with an authorization code.
+    The server will exchange the code for user info and log the user in.
+  parameters:
+    - name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+        example: google
+      description: OAuth provider name (e.g., google, github).
+    - name: code
+      in: query
+      required: true
+      schema:
+        type: string
+      description: OAuth authorization code provided by the OAuth provider.
+    - name: state
+      in: query
+      schema:
+        type: string
+      description: OAuth state parameter for CSRF protection.
+  responses:
+    "200":
+      description: OAuth login successful
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SuccessResponse"
+    "400":
+      description: Missing or invalid code.
+    "401":
+      description: OAuth exchange failed (bad code or provider error).
+
+components:
+  schemas:
+    SuccessResponse:
+      $ref: "../../../schemas/SuccessResponse.yaml"

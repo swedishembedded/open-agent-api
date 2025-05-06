@@ -1,0 +1,96 @@
+type: object
+description: Response returned by Team.run() functions
+properties:
+  event:
+    type: string
+    description: The event type
+  content:
+    type: string
+    description: The content of the response
+  content_type:
+    type: string
+    description: The type of content
+    default: "str"
+  thinking:
+    type: string
+    nullable: true
+    description: Thinking process of the team
+  messages:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/TeamMessage"
+    description: The messages associated with the run
+  metrics:
+    type: object
+    nullable: true
+    description: Metrics related to the team run
+  model:
+    type: string
+    nullable: true
+    description: The model used for the run
+  member_responses:
+    type: array
+    items:
+      $ref: "#/components/schemas/RunResponseEvent"
+    description: Responses from individual team members
+    default: []
+  run_id:
+    type: string
+    nullable: true
+    description: The unique identifier for the run
+  team_id:
+    type: string
+    nullable: true
+    description: The unique identifier for the team
+  session_id:
+    type: string
+    nullable: true
+    description: The unique identifier for the session
+  tools:
+    type: array
+    nullable: true
+    items:
+      type: object
+    description: Tools used in the team run
+  formatted_tool_calls:
+    type: array
+    nullable: true
+    items:
+      type: string
+    description: Formatted representation of tool calls
+  images:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/Image"
+    description: Images generated from member runs
+  videos:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/Video"
+    description: Videos generated from member runs
+  audio:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/Audio"
+    description: Audio generated from member runs
+  created_at:
+    type: integer
+    description: The timestamp when the response was created
+
+components:
+  schemas:
+    TeamMessage:
+      $ref: "../agent/AgentMessage.yaml"
+    RunResponseEvent:
+      $ref: "../events/RunResponseEvent.yaml"
+    Image:
+      $ref: "../Image.yaml"
+    Video:
+      $ref: "../Video.yaml"
+    Audio:
+      $ref: "../Audio.yaml"
+

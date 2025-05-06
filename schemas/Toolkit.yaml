@@ -1,0 +1,22 @@
+type: object
+required:
+  - name
+  - instructions
+properties:
+  name:
+    type: string
+    description: The name of the tool
+  instructions:
+    type: string
+    description: Optional instructions for the toolkit
+  functions:
+    type: array
+    default: []
+    items:
+      $ref: "#/components/schemas/ToolkitFunction"
+    description: The functions of the tool
+
+components:
+  schemas:
+    ToolkitFunction:
+      $ref: "./ToolkitFunction.yaml"

@@ -1,0 +1,17 @@
+type: object
+anyOf:
+  - $ref: "#/components/schemas/RunStartedEvent"
+  - $ref: "#/components/schemas/ToolCallStartedEvent"
+  - $ref: "#/components/schemas/RunCompletedEvent"
+  - $ref: "#/components/schemas/ToolCallCompletedEvent"
+
+components:
+  schemas:
+    RunStartedEvent:
+      $ref: "../events/RunStartedEvent.yaml"
+    ToolCallStartedEvent:
+      $ref: "../events/ToolCallStartedEvent.yaml"
+    RunCompletedEvent:
+      $ref: "../events/RunCompletedEvent.yaml"
+    ToolCallCompletedEvent:
+      $ref: "../events/ToolCallCompletedEvent.yaml"

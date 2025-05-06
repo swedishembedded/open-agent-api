@@ -1,0 +1,12 @@
+type: object
+title: UrlCitation
+description: URL of the citation
+properties:
+  url:
+    anyOf:
+      - type: string
+    title: Url
+  title:
+    anyOf:
+      - type: string
+    title: Title

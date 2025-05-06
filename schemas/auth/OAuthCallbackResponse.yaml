@@ -1,0 +1,16 @@
+type: object
+required:
+  - token_id
+  - token_type
+  - expires_at
+properties:
+  token_id:
+    type: string
+    description: The ID of the token.
+  token_type:
+    type: string
+    example: Bearer
+  expires_at:
+    type: string
+    format: date-time
+    description: Expiration time of the token.

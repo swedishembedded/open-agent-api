@@ -1,0 +1,36 @@
+get:
+  tags:
+    - subscription
+  summary: Get Plan
+  description: Get details of a specific subscription plan.
+  operationId: get_plan_subscription_plans__plan_id__get
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: plan_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+        title: Plan Id
+  responses:
+    "200":
+      description: Successful Response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SubscriptionPlanInfo"
+    "422":
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+components:
+  schemas:
+    SubscriptionPlanInfo:
+      $ref: "../../../schemas/account/SubscriptionPlanInfo.yaml"
+    ValidationError:
+      $ref: "../../../schemas/ValidationError.yaml"

@@ -1,0 +1,36 @@
+post:
+  tags:
+    - Account
+  summary: Topup Account
+  description: Topup the account with a specific amount
+  operationId: topup_account_account_topup_post
+  security:
+    - BearerAuth: []
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AccountTopupRequest"
+    required: true
+  responses:
+    "200":
+      description: Topup successful
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AccountTopupResponse"
+    "400":
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+components:
+  schemas:
+    AccountTopupRequest:
+      $ref: "../../schemas/account/AccountTopupRequest.yaml"
+    AccountTopupResponse:
+      $ref: "../../schemas/account/AccountTopupResponse.yaml"
+    ValidationError:
+      $ref: "../../schemas/ValidationError.yaml"

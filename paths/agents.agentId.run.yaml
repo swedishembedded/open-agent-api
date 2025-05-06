@@ -1,0 +1,74 @@
+post:
+  tags: [Agents]
+  summary: Interact with an agent (chat interface)
+  description: |
+    Send a chat conversation to the specified agent and get a response. Supports streaming responses via SSE.
+    The agent can utilize tools if available; tool requests will be surfaced as events in streaming mode.
+    If not streaming, the agent's final answer is returned directly.
+  security:
+    - ApiKey: []
+  parameters:
+    - name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The ID of the agent to interact with.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              description: The conversation history or prompt for the agent.
+              items:
+                $ref: "#/components/schemas/AgentMessage"
+            tools:
+              type: array
+              items:
+                $ref: "#/components/schemas/ToolkitFunction"
+              description: Optional list of available tools for this interaction (overrides or supplements agent's default tools).
+  responses:
+    "200":
+      description: |
+        Successful response from agent. If not streaming, this is the final answer.
+        If streaming, this is the initial response (possibly empty or just an acknowledgment).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                $ref: "#/components/schemas/AgentMessage"
+              finish_reason:
+                type: string
+                description: Reason the agent stopped (e.g. "stop", "tool_request").
+        text/event-stream:
+          schema:
+            type: string
+            description: |
+              Server-Sent Events stream. The stream will contain events:
+              - RunStartedEvent (agent started processing)
+              - ToolCallStartedEvent (tool started processing)
+              - RunResponseEvent (partial output or tool request)
+              - RunCompletedEvent (final output)
+              - ToolCallCompletedEvent (tool completed)
+              Each event's data is a JSON object with at least a "type" field and additional fields depending on type.
+              For example, a ToolRequest event may have { "type": "ToolRequest", "tool": "...", "input": "..." }.
+    "400":
+      description: Bad input (e.g., missing messages).
+    "401":
+      description: Unauthorized.
+    "404":
+      description: Agent not found.
+
+components:
+  schemas:
+    AgentMessage:
+      $ref: "../schemas/agent/AgentMessage.yaml"
+    ToolkitFunction:
+      $ref: "../schemas/ToolkitFunction.yaml"

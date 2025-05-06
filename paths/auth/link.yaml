@@ -1,0 +1,27 @@
+post:
+  tags: [Authentication]
+  summary: Request a magic login link via email
+  description: |
+    Initiates a magic link authentication by sending an email with a login link.
+    The email contains a token that can be used to verify and log in.
+
+    **Note:** This endpoint is typically unauthenticated (no token required)
+    *because it's for login.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AuthMagicLinkRequest"
+  responses:
+    "200":
+      description: Magic link email sent (or response is always 204 No Content on success).
+    "400":
+      description: Bad request (invalid email)
+    "429":
+      description: Too many requests (rate limit on sending emails)
+
+components:
+  schemas:
+    AuthMagicLinkRequest:
+      $ref: "../../schemas/auth/AuthMagicLinkRequest.yaml"

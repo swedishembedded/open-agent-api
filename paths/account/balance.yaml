@@ -1,0 +1,20 @@
+get:
+  tags:
+    - Account
+  security:
+    - BearerAuth: []
+  summary: Get Usage
+  description: Get usage details for the current user.
+  operationId: get_user_usage
+  responses:
+    "200":
+      description: Successful Response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AccountBalanceInfo"
+
+components:
+  schemas:
+    AccountBalanceInfo:
+      $ref: "../../schemas/account/AccountBalanceInfo.yaml"

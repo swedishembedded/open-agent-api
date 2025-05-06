@@ -1,0 +1,20 @@
+type: object
+required:
+  - query
+  - references
+title: MessageReferences
+description: References added to user message
+properties:
+  query:
+    type: string
+    title: Query
+  references:
+    anyOf:
+      - type: array
+        items:
+          type: object
+    title: References
+  time:
+    anyOf:
+      - type: number
+    title: Time

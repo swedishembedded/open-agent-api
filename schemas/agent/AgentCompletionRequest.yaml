@@ -1,0 +1,40 @@
+type: object
+required:
+  - environment
+  - messages
+properties:
+  id:
+    type: string
+    default: simple
+    description: The id of the agent to use
+  model:
+    type: string
+    default: claude-3-7-sonnet-latest
+    description: The Claude model to use
+  environment:
+    $ref: "#/components/schemas/AgentEnvironment"
+    description: The environment
+  tools:
+    type: array
+    default: []
+    items:
+      $ref: "#/components/schemas/Toolkit"
+    description: The tools to use
+  messages:
+    type: array
+    default: []
+    items:
+      $ref: "#/components/schemas/AgentMessage"
+    description: The messages to send to the agent
+
+components:
+  schemas:
+    AgentMessage:
+      $ref: "./AgentMessage.yaml"
+
+    AgentEnvironment:
+      $ref: "./AgentEnvironment.yaml"
+
+    Toolkit:
+      $ref: "../Toolkit.yaml"
+

@@ -1,0 +1,74 @@
+post:
+  tags: [Teams]
+  summary: Create a new team of agents
+  description: |
+    Dynamically create a team of agents. Provide a list of existing agent IDs and their roles.
+    Optionally specify which agent should act as the team leader (or one will be chosen).
+  security:
+    - ApiKey: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [name, agents, tools]
+          properties:
+            name:
+              type: string
+              description: Team name.
+            members:
+              type: array
+              description: Agents to include in the team.
+              items:
+                type: object
+                required: [agent_id, role]
+                properties:
+                  agent_id:
+                    type: string
+                  role:
+                    type: string
+                    description: Role of this agent in the team (e.g. "Researcher", "Coder").
+            tools:
+              type: array
+              items:
+                $ref: "#/components/schemas/Toolkit"
+              description: Toolkits available to the manager of the team
+  responses:
+    "201":
+      description: Team created.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Team"
+    "400":
+      description: Bad input (e.g., agent IDs invalid).
+    "401":
+      description: Unauthorized.
+get:
+  tags: [Teams]
+  summary: List my teams
+  security:
+    - ApiKey: []
+  responses:
+    "200":
+      description: List of teams.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              teams:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+    "401":
+      description: Unauthorized.
+
+components:
+  schemas:
+    Team:
+      $ref: "../schemas/Team.yaml"
+    Toolkit:
+      $ref: "../schemas/Toolkit.yaml"
+

@@ -1,0 +1,31 @@
+get:
+  tags: [Teams]
+  summary: Get team details
+  description: |
+    Retrieve info about a specific team, including members and roles.
+    Also includes toolkits available to the manager of the team.
+  security:
+    - ApiKey: []
+  parameters:
+    - name: teamId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Team ID.
+  responses:
+    "200":
+      description: Team details.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Team"
+    "404":
+      description: Team not found or not accessible.
+    "401":
+      description: Unauthorized.
+
+components:
+  schemas:
+    Team:
+      $ref: "../../schemas/Team.yaml"

@@ -1,0 +1,73 @@
+type: object
+required:
+  - id
+  - name
+  - created_at
+  - is_active
+  - last_used_at
+properties:
+  id:
+    type: string
+    format: uuid
+    title: ID
+    description: Unique identifier for the API key
+  name:
+    type: string
+    title: Name
+    description: The descriptive name of the API key
+  prefix:
+    type: string
+    title: Prefix
+    description: First few characters of the API key for identification
+  created_at:
+    type: string
+    format: date-time
+    title: Created At
+    description: Timestamp when the API key was created
+  expires_at:
+    type: string
+    format: date-time
+    title: Expires At
+    description: Timestamp when the API key will expire (null if never expires)
+  is_active:
+    type: boolean
+    title: Is Active
+    description: Whether the API key is currently active
+    default: true
+  last_used_at:
+    type: string
+    format: date-time
+    title: Last Used At
+    description: Timestamp when the API key was last used (null if never used)
+  scopes:
+    type: array
+    items:
+      type: string
+    title: Scopes
+    description: Permission scopes assigned to the API key
+  metadata:
+    type: object
+    additionalProperties: true
+    title: Metadata
+    description: Custom metadata for the API key
+  usage:
+    type: object
+    properties:
+      total_requests:
+        type: integer
+        title: Total Requests
+        description: Total number of API requests made with this key
+      total_tokens:
+        type: integer
+        title: Total Tokens
+        description: Total number of tokens consumed by this key
+      monthly_requests:
+        type: integer
+        title: Monthly Requests
+        description: Number of API requests made this month
+      monthly_tokens:
+        type: integer
+        title: Monthly Tokens
+        description: Number of tokens consumed this month
+    title: Usage
+    description: Usage statistics for the API key

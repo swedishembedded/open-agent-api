@@ -1,0 +1,22 @@
+get:
+  tags:
+    - MCP
+  summary: Sse Endpoint
+  description: SSE endpoint for MCP clients.
+  operationId: sse_endpoint_mcp_sse_get
+  responses:
+    "200":
+      description: Successful Response
+      content:
+        text/event-stream:
+          schema:
+            type: object
+            properties:
+              event:
+                type: string
+                description: The type of event
+                enum:
+                  - status
+              data:
+                type: object
+                description: The event data, can be any object

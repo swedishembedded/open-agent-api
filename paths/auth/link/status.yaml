@@ -1,0 +1,33 @@
+get:
+  tags:
+    - Authentication
+  summary: Check Verification Status
+  description: Check if a verification token has been used.
+    Used by the client to poll for verification status.
+  operationId: check_verification_status_auth_verification_status__token__get
+  parameters:
+    - name: token
+      in: path
+      required: true
+      schema:
+        type: string
+        title: Token
+  responses:
+    "200":
+      description: Successful Response
+      content:
+        application/json:
+          schema:
+            type: object
+            title: Response Check Verification Status Auth Verification Status  Token  Get
+    "422":
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+components:
+  schemas:
+    ValidationError:
+      $ref: "../../../schemas/ValidationError.yaml"

@@ -1,0 +1,12 @@
+post:
+  tags:
+    - MCP
+  summary: Messages Endpoint
+  description: Messages endpoint for MCP clients.
+  operationId: messages_endpoint_mcp_messages_post
+  responses:
+    "200":
+      description: Successful Response
+      content:
+        application/json:
+          schema: {}

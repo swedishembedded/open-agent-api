@@ -1,0 +1,11 @@
+type: object
+required:
+  - working_directory
+  - platform
+properties:
+  working_directory:
+    type: string
+    description: The working directory for the agent
+  platform:
+    type: string
+    description: The platform the agent is running on

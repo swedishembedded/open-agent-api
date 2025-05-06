@@ -1,0 +1,49 @@
+get:
+  tags: [Authentication]
+  summary: Initiate OAuth2 login flow
+  description: |
+    Generates and returns the authorization URL for a specific OAuth provider.
+    The client should redirect the user to this URL to begin the OAuth process.
+
+    For console applications, this endpoint can generate a URL that can be opened
+    in a browser, and the application can use a local redirect or device flow.
+  parameters:
+    - name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+        example: google
+      description: OAuth provider name (e.g., google, github).
+    - name: redirect_uri
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uri
+      description: |
+        Optional redirect URI after successful OAuth. If not provided,
+        a default redirect URI configured for the application will be used.
+    - name: device_flow
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: |
+        If true, initiates a device flow suitable for console applications.
+        Returns a device code and verification URI instead of a redirect URL.
+  responses:
+    "200":
+      description: OAuth flow initiated successfully
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OAuthAuthorizationResponse"
+    "400":
+      description: Bad request (invalid provider or parameters)
+
+components:
+  schemas:
+    OAuthAuthorizationResponse:
+      $ref: "../../../schemas/auth/OAuthAuthorizationResponse.yaml"

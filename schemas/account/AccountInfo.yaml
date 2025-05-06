@@ -1,0 +1,35 @@
+type: object
+required:
+  - email
+properties:
+  id:
+    type: string
+    format: uuid
+    title: ID
+    description: Unique identifier for the user account
+  name:
+    type: string
+    title: Name
+    description: The name of the user account
+  email:
+    type: string
+    title: Email
+  username:
+    type: string
+    title: Username
+    description: The username of the user account
+  created_at:
+    type: string
+    format: date-time
+    title: Created At
+    description: Timestamp when the user account was created
+  subscriptions:
+    type: array
+    items:
+      $ref: "#/components/schemas/AccountSubscriptionInfo"
+    title: Subscriptions
+    description: List of subscriptions for the user account
+components:
+  schemas:
+    AccountSubscriptionInfo:
+      $ref: "./AccountSubscriptionInfo.yaml"

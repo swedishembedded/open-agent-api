@@ -1,0 +1,16 @@
+type: object
+title: DocumentCitation
+description: Document of the citation
+properties:
+  document_title:
+    anyOf:
+      - type: string
+    title: Document Title
+  cited_text:
+    anyOf:
+      - type: string
+    title: Cited Text
+  file_name:
+    anyOf:
+      - type: string
+    title: File Name

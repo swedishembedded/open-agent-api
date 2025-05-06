@@ -1,0 +1,43 @@
+properties:
+  name:
+    type: string
+    title: Name
+  description:
+    anyOf:
+      - type: string
+    title: Description
+  stripe_price_id:
+    type: string
+    title: Stripe Price Id
+  stripe_product_id:
+    type: string
+    title: Stripe Product Id
+  features:
+    type: object
+    title: Features
+    default: {}
+  is_active:
+    type: boolean
+    title: Is Active
+    default: true
+  id:
+    type: string
+    format: uuid
+    title: Id
+  created_at:
+    type: string
+    format: date-time
+    title: Created At
+  updated_at:
+    type: string
+    format: date-time
+    title: Updated At
+type: object
+required:
+  - name
+  - stripe_price_id
+  - stripe_product_id
+  - id
+  - created_at
+  - updated_at
+title: SubscriptionPlanInfo

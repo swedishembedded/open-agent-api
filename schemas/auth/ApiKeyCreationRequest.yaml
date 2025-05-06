@@ -1,0 +1,27 @@
+type: object
+required:
+  - name
+properties:
+  name:
+    type: string
+    title: Name
+    description: A descriptive name for the API key to help identify its purpose
+  expires_in:
+    type: integer
+    title: Expires In
+    description: Number of days until the API key expires (0 for no expiration)
+    default: 0
+  scopes:
+    type: array
+    items:
+      type: string
+      enum: [read, write, admin]
+    title: Scopes
+    description: Permission scopes for the API key
+    default: ["read", "write"]
+  metadata:
+    type: object
+    additionalProperties: true
+    title: Metadata
+    description: Optional custom metadata for the API key (e.g., application name, environment)
+    default: {}

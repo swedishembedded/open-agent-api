@@ -1,0 +1,12 @@
+type: object
+required:
+  - authorization_url
+  - state
+properties:
+  authorization_url:
+    type: string
+    format: uri
+    description: The URL to redirect the user to for OAuth login
+  state:
+    type: string
+    description: CSRF protection state parameter to verify in the callback

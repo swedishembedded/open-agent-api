@@ -1,0 +1,49 @@
+post:
+  tags: [Agents]
+  summary: Create a new agent
+  description: |
+    Registers a new agent with given configuration. The agent will be associated with the authenticated user's account.
+
+    Agents have a base model and optional user tools that they can use.
+
+    The agent can also use tools that are provided on the server side. These tools are either predefined by the server such as the web search tool or defined by the user but executed on the server - such as MCP based tools.
+  security:
+    - ApiKey: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/Agent.yaml"
+  responses:
+    "201":
+      description: Agent created successfully
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/Agent.yaml"
+    "400":
+      description: Invalid input.
+    "401":
+      description: Unauthorized.
+get:
+  tags: [Agents]
+  summary: List my agents
+  description: |
+    Retrieve all agents owned by the authenticated user.
+  security:
+    - ApiKey: []
+  responses:
+    "200":
+      description: A list of agent definitions.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              agents:
+                type: array
+                items:
+                  $ref: "../schemas/Agent.yaml"
+    "401":
+      description: Unauthorized.

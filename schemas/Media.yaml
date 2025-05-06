@@ -1,0 +1,14 @@
+type: object
+description: Base media object
+properties:
+  id:
+    type: string
+    description: Unique identifier for the media
+  original_prompt:
+    type: string
+    nullable: true
+    description: Original prompt used to generate the media
+  revised_prompt:
+    type: string
+    nullable: true
+    description: Revised prompt used to generate the media

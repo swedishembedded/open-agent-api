@@ -1,0 +1,19 @@
+type: object
+required:
+  - url
+  - duration
+  - transcript
+  - language
+properties:
+  url:
+    type: string
+    description: The URL of the audio file
+  duration:
+    type: number
+    description: The duration of the audio file
+  transcript:
+    type: string
+    description: The transcript of the audio file
+  language:
+    type: string
+    description: The language of the audio file

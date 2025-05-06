@@ -1,0 +1,55 @@
+type: object
+title: ApiKeyUsageInfo
+properties:
+  input_tokens:
+    type: integer
+    title: Input Tokens
+    default: 0
+  input_cost_usd_cents:
+    type: integer
+    title: Input Cost USD Cents
+    default: 0
+  output_tokens:
+    type: integer
+    title: Output Tokens
+    default: 0
+  output_cost_usd_cents:
+    type: integer
+    title: Output Cost USD Cents
+    default: 0
+  total_tokens:
+    type: integer
+    title: Total Tokens
+    default: 0
+  total_cost_usd_cents:
+    type: integer
+    title: Total Cost USD Cents
+    default: 0
+  prompt_tokens:
+    type: integer
+    title: Prompt Tokens
+    default: 0
+  completion_tokens:
+    type: integer
+    title: Completion Tokens
+    default: 0
+  prompt_tokens_details:
+    anyOf:
+      - type: object
+    title: Prompt Tokens Details
+  completion_tokens_details:
+    anyOf:
+      - type: object
+    title: Completion Tokens Details
+  additional_metrics:
+    anyOf:
+      - type: object
+    title: Additional Metrics
+  time:
+    anyOf:
+      - type: number
+    title: Time
+  time_to_first_token:
+    anyOf:
+      - type: number
+    title: Time To First Token

@@ -1,0 +1,20 @@
+type: object
+required:
+  - amount
+properties:
+  amount:
+    type: integer
+    title: Amount
+    description: The amount to top up
+  currency:
+    type: string
+    title: Currency
+    description: The currency to top up in
+  success_url:
+    type: string
+    title: Success URL
+    description: The URL to redirect to after the topup is successful
+  cancel_url:
+    type: string
+    title: Cancel URL
+    description: The URL to redirect to if the user cancels the topup

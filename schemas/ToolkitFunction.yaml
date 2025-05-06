@@ -1,0 +1,20 @@
+type: object
+description: A function that an agent can use (function/plugin).
+required:
+  - name
+  - description
+  - parameters
+properties:
+  name:
+    type: string
+    description: The name of the function
+  description:
+    type: string
+    description: The description of the function
+  parameters:
+    type: object
+    description: The parameters of the function
+  strict:
+    type: boolean
+    description: Whether the function is strict
+    default: false

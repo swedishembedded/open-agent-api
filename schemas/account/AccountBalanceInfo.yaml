@@ -1,0 +1,11 @@
+type: object
+title: AccountBalanceInfo
+properties:
+  balance:
+    type: integer
+    title: Balance
+    default: 0
+  currency:
+    type: string
+    title: Currency
+    default: "USD"

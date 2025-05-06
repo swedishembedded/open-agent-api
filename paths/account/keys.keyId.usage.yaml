@@ -1,0 +1,68 @@
+get:
+  tags:
+    - Account
+  summary: Get API Key Usage
+  description: |
+    Get detailed usage statistics for a specific API key.
+    This includes aggregated request counts, token usage, and billing information.
+    Optionally filter by date range or group by different time periods.
+  operationId: account_keys_get_usage_for_id
+  security:
+    - BearerAuth: []
+  parameters:
+    - name: key_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The UUID of the API key
+    - name: start_date
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+      description: Start date for filtering usage data (YYYY-MM-DD)
+    - name: end_date
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+      description: End date for filtering usage data (YYYY-MM-DD)
+    - name: group_by
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [day, week, month]
+        default: day
+      description: Group usage data by time period
+  responses:
+    "200":
+      description: API key usage data returned successfully
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiKeyUsageInfo"
+    "401":
+      description: Unauthorized - Invalid or missing authentication
+    "403":
+      description: Forbidden - User does not have permission to access this API key
+    "404":
+      description: API key not found
+    "422":
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+components:
+  schemas:
+    ApiKeyUsageInfo:
+      $ref: "../../schemas/account/ApiKeyUsageInfo.yaml"
+
+    ValidationError:
+      $ref: "../../schemas/ValidationError.yaml"

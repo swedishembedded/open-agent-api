@@ -1,0 +1,58 @@
+type: object
+description: Request for Team.run() functions
+properties:
+  messages:
+    type: array
+    items:
+      $ref: "#/components/schemas/AgentMessage"
+    description: |
+      The messages to send to the team, can be a string, list, dict, or Message object
+  stream:
+    type: boolean
+    default: false
+    description: Whether to stream the response
+  stream_intermediate_steps:
+    type: boolean
+    default: false
+    description: Whether to stream intermediate steps
+  retries:
+    type: integer
+    nullable: true
+    description: Number of retries if the run fails
+  audio:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/Audio"
+    description: Audio files to include with the request
+  images:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/Image"
+    description: Images to include with the request
+  videos:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/Video"
+    description: Videos to include with the request
+  files:
+    type: array
+    nullable: true
+    items:
+      $ref: "#/components/schemas/File"
+    description: Files to include with the request
+
+components:
+  schemas:
+    Video:
+      $ref: "../Video.yaml"
+    File:
+      $ref: "../File.yaml"
+    AgentMessage:
+      $ref: "../agent/AgentMessage.yaml"
+    Audio:
+      $ref: "../Audio.yaml"
+    Image:
+      $ref: "../Image.yaml"

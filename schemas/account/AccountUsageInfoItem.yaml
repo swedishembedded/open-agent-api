@@ -1,0 +1,29 @@
+type: object
+title: AccountUsageInfoItem
+properties:
+  method:
+    type: string
+    title: Method
+  endpoint:
+    type: string
+    title: Endpoint
+  input_tokens:
+    type: integer
+    title: Input Tokens
+    default: 0
+  output_tokens:
+    type: integer
+    title: Output Tokens
+    default: 0
+  debit_microdollars:
+    type: integer
+    title: Debit Microdollars
+    default: 0
+  credit_microdollars:
+    type: integer
+    title: Credit Microdollars
+    default: 0
+  created_at:
+    type: string
+    title: Created At
+    format: date-time
