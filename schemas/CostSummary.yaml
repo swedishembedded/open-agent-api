@@ -1,0 +1,15 @@
+type: object
+required:
+  - input_tokens
+  - output_tokens
+  - microdollars
+properties:
+  input_tokens:
+    type: number
+    description: The number of input tokens used
+  output_tokens:
+    type: number
+    description: The number of output tokens used
+  microdollars:
+    type: number
+    description: The cost in microdollars

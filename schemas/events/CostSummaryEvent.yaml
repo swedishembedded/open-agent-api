@@ -1,0 +1,9 @@
+type: object
+required:
+  - cost
+properties:
+  event:
+    type: string
+    description: The type of event
+  cost:
+    $ref: "../CostSummary.yaml"

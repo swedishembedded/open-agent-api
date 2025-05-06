@@ -60,7 +60,7 @@ post:
 components:
   schemas:
     TeamMessage:
-      $ref: "../../schemas/agent/AgentMessage.yaml"
+      $ref: "../../schemas/team/TeamMessage.yaml"
     ToolkitFunction:
       $ref: "../../schemas/ToolkitFunction.yaml"
     TeamUsageInfo:

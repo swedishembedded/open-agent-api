@@ -19,19 +19,7 @@ post:
     content:
       application/json:
         schema:
-          type: object
-          required: [messages]
-          properties:
-            messages:
-              type: array
-              description: The conversation history or prompt for the agent.
-              items:
-                $ref: "#/components/schemas/AgentMessage"
-            tools:
-              type: array
-              items:
-                $ref: "#/components/schemas/ToolkitFunction"
-              description: Optional list of available tools for this interaction (overrides or supplements agent's default tools).
+          $ref: "../schemas/agent/AgentCompletionRequest.yaml"
   responses:
     "200":
       description: |
@@ -40,13 +28,7 @@ post:
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              message:
-                $ref: "#/components/schemas/AgentMessage"
-              finish_reason:
-                type: string
-                description: Reason the agent stopped (e.g. "stop", "tool_request").
+            $ref: "../schemas/agent/AgentCompletionResponse.yaml"
         text/event-stream:
           schema:
             type: string

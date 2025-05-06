@@ -6,7 +6,7 @@ generate:
 		-g python \
 		-o python/client/ \
 		--package-name open_agent_api \
-  		--additional-properties=packageVersion=0.5.0
+  		--additional-properties=packageVersion=0.6.0
 
 .PHONY: install
 install:

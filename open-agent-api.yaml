@@ -6,7 +6,7 @@ info:
     autonomous agents with tool usage, multi-agent teams, knowledge base search,
     and optional billing integration.
     Clients can authenticate via magic link or OAuth2 to obtain a token, or use API keys.
-  version: "0.5.0"
+  version: "0.6.0"
 servers:
   - url: https://localhost:8007/v1
     description: Local API
@@ -635,9 +635,6 @@ components:
     DocumentCitation:
       $ref: "./schemas/message/citations/DocumentCitation.yaml"
 
-    TeamMessageCitations:
-      $ref: "./schemas/team/message/Citations.yaml"
-
     RunStartedEvent:
       $ref: "./schemas/events/RunStartedEvent.yaml"
 
@@ -652,8 +649,6 @@ components:
 
     RunResponseEvent:
       $ref: "./schemas/events/RunResponseEvent.yaml"
-    TeamRunRequest:
-      $ref: "./schemas/team/TeamRunRequest.yaml"
 
     File:
       $ref: "./schemas/File.yaml"
@@ -675,6 +670,21 @@ components:
 
     Team:
       $ref: "./schemas/Team.yaml"
+
+    TeamMessageCitations:
+      $ref: "./schemas/team/message/Citations.yaml"
+
+    TeamMessage:
+      $ref: "./schemas/team/TeamMessage.yaml"
+
+    TeamRunRequest:
+      $ref: "./schemas/team/TeamRunRequest.yaml"
+
+    CostSummary:
+      $ref: "./schemas/CostSummary.yaml"
+
+    CostSummaryEvent:
+      $ref: "./schemas/events/CostSummaryEvent.yaml"
 
     AgentCompletionRequest:
       $ref: "./schemas/agent/AgentCompletionRequest.yaml"
@@ -942,9 +952,6 @@ components:
 
     TeamUsageInfo:
       $ref: "./schemas/message/AgentMessageMetrics.yaml"
-
-    TeamMessage:
-      $ref: "./schemas/agent/AgentMessage.yaml"
 
     AccountUsageInfo:
       $ref: "./schemas/account/AccountUsageInfo.yaml"

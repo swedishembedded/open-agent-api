@@ -1,0 +1,12 @@
+description: The function to call
+type: object
+required:
+  - name
+  - arguments
+properties:
+  name:
+    type: string
+    description: The name of the function to call
+  arguments:
+    type: string
+    description: The arguments to pass to the function

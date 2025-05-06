@@ -7,8 +7,12 @@ properties:
     items:
       $ref: "#/components/schemas/AgentMessage"
     description: The messages received from the agent
+  cost:
+    $ref: "#/components/schemas/CostSummary"
 
 components:
   schemas:
     AgentMessage:
       $ref: "./AgentMessage.yaml"
+    CostSummary:
+      $ref: "../CostSummary.yaml"
