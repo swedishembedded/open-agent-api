@@ -6,13 +6,17 @@ generate:
 		-g python \
 		-o python/client/ \
 		--package-name open_agent_api \
-  		--additional-properties=packageVersion=0.6.0
+  		--additional-properties=packageVersion=0.7.0
 
 .PHONY: install
 install:
 	pip install --upgrade -r requirements.txt
 	if ! command -v java; then \
-		sudo apt-get install -qy default-jre; \
+		if [ command -v sudo ]; then \
+			sudo apt-get install -qy default-jre; \
+		else \
+			apt-get install -qy default-jre; \
+		fi; \
 	fi
 
 .PHONY: refresh
